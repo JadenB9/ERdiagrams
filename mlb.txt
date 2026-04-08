@@ -1,0 +1,28 @@
+# MLB Baseball Database ER Diagram
+# CS3610 - HW7 ER Modeling Lab
+#
+# Syntax:
+#   ENTITY Name: *pk_attr, attr, {multivalued}, derived()
+#   WEAK Name: ~discriminator, attr1, attr2
+#   REL name (Entity1, Entity2) cardinality participation [attr1, attr2]
+#   IDENT name (Entity1, Entity2) cardinality participation
+#
+# Cardinality: M:N, 1:N, N:1, 1:1
+# Participation: partial/partial, partial/total, total/partial, total/total
+# * = primary key, ~ = discriminator, {} = multivalued, () = derived
+
+ENTITY Player: *player_id, name, birthday, birth_city, batting_hand, throwing_hand, first_game_date, last_game_date, {positions}
+ENTITY Team: *team_id, name, league, year_founded, most_recent_year
+
+WEAK TeamSeason: ~year, games, wins, losses, ranking, attendance
+WEAK BattingStats: ~year, at_bats, strikeouts, steals, walks, hits, singles, doubles, triples, home_runs
+WEAK PitchingStats: ~year, earned_runs, outs_pitched, saves, starts, wins, losses, walks, strikeouts
+WEAK FieldingStats: ~year, errors, put_outs
+WEAK CatchingStats: ~year, passed_balls, steals_caught, steals_allowed
+
+REL plays_for (Player, TeamSeason) M:N partial/total [games_played, salary]
+IDENT has_season (Team, TeamSeason) 1:N partial/total
+IDENT has_batting (Player, BattingStats) 1:N partial/total
+IDENT has_pitching (Player, PitchingStats) 1:N partial/total
+IDENT has_fielding (Player, FieldingStats) 1:N partial/total
+IDENT has_catching (Player, CatchingStats) 1:N partial/total

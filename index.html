@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ER Diagram Builder</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <div id="toolbar">
+      <button class="tbtn active" data-tool="select" title="Select & move elements. Click empty canvas to pan.">
+        <span class="ticon">V</span> Select
+      </button>
+      <button class="tbtn" data-tool="connect" title="Click two elements to draw a line between them.">
+        <span class="ticon">/</span> Connect
+      </button>
+      <div class="tsep"></div>
+      <button class="tbtn" data-tool="entity" title="Click canvas to place a strong entity rectangle.">
+        <span class="ticon">[]</span> Entity
+      </button>
+      <button class="tbtn" data-tool="weak-entity" title="Click canvas to place a weak entity (double border).">
+        <span class="ticon">[[]]</span> Weak Entity
+      </button>
+      <button class="tbtn" data-tool="relationship" title="Click canvas to place a relationship diamond.">
+        <span class="ticon">&lt;&gt;</span> Relationship
+      </button>
+      <button class="tbtn" data-tool="identifying-rel" title="Click canvas to place an identifying relationship (double diamond).">
+        <span class="ticon">&lt;&lt;&gt;&gt;</span> Ident. Rel.
+      </button>
+      <div class="tsep"></div>
+      <button class="tbtn" id="delete-btn" title="Delete the selected element or connection.">
+        <span class="ticon">X</span> Delete
+      </button>
+      <button class="tbtn" id="export-btn" title="Download diagram as a PNG image.">
+        <span class="ticon">^</span> Export
+      </button>
+      <button class="tbtn" id="clear-btn" title="Remove everything from the canvas.">
+        <span class="ticon">--</span> Clear
+      </button>
+    </div>
+
+    <div id="workspace">
+      <svg id="canvas" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e0e0e0" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+        <rect id="grid-bg" x="-10000" y="-10000" width="30000" height="30000" fill="url(#grid)"/>
+        <g id="connections-layer"></g>
+        <g id="elements-layer"></g>
+      </svg>
+
+      <div id="resize-handle" title="Drag to resize panel"></div>
+
+      <div id="side-panel">
+        <div id="props-section">
+          <h3>Properties</h3>
+          <div id="props-content">
+            <p class="hint">Click an element to edit it.</p>
+            <p class="hint" style="margin-top:8px"><b>Tips:</b></p>
+            <p class="hint">[V] <b>Select</b> &ndash; click to select, drag to move, click empty space to pan</p>
+            <p class="hint">[/] <b>Connect</b> &ndash; click first element, then second to draw line</p>
+            <p class="hint">[] <b>Entity / Weak / Rel</b> &ndash; click canvas to place</p>
+            <p class="hint">[Space] center view &nbsp; [Scroll] zoom</p>
+          </div>
+        </div>
+        <div id="text-resize-handle" title="Drag to resize text area"></div>
+        <div id="text-section" class="collapsed">
+          <h3 id="text-toggle">ER Text Input <span class="toggle-arrow">&#9654;</span>
+            <button class="small-btn" id="render-btn">Render</button>
+          </h3>
+          <textarea id="er-input" spellcheck="false" placeholder="Paste ER definition here..."></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+  <script src="mlb.js"></script>
+</body>
+</html>
