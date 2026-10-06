@@ -3,90 +3,116 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Draw entity-relationship diagrams with weak entities and identifying relationships, then export PNG, SVG or a SQL schema.">
   <title>ER Diagram Builder</title>
+  <script src="theme.js"></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div id="app">
-    <div id="toolbar">
-      <button class="tbtn active" data-tool="select" title="Select & move elements. Click empty canvas to pan.">
-        <span class="ticon">V</span> Select
+    <div id="toolbar" role="toolbar" aria-label="Diagram tools">
+      <button class="tbtn active" data-tool="select" aria-pressed="true" title="Select &amp; move elements. Drag empty canvas to pan. (V)">
+        <span class="ticon" aria-hidden="true">V</span> Select
       </button>
-      <button class="tbtn" data-tool="connect" title="Click two elements to draw a line between them.">
-        <span class="ticon">/</span> Connect
-      </button>
-      <div class="tsep"></div>
-      <button class="tbtn" data-tool="entity" title="Click canvas to place a strong entity rectangle.">
-        <span class="ticon">[]</span> Entity
-      </button>
-      <button class="tbtn" data-tool="weak-entity" title="Click canvas to place a weak entity (double border).">
-        <span class="ticon">[[]]</span> Weak Entity
-      </button>
-      <button class="tbtn" data-tool="relationship" title="Click canvas to place a relationship diamond.">
-        <span class="ticon">&lt;&gt;</span> Relationship
-      </button>
-      <button class="tbtn" data-tool="identifying-rel" title="Click canvas to place an identifying relationship (double diamond).">
-        <span class="ticon">&lt;&lt;&gt;&gt;</span> Ident. Rel.
+      <button class="tbtn" data-tool="connect" aria-pressed="false" title="Click two elements to draw a line between them. (C)">
+        <span class="ticon" aria-hidden="true">/</span> Connect
       </button>
       <div class="tsep"></div>
-      <button class="tbtn" id="delete-btn" title="Delete the selected element or connection.">
-        <span class="ticon">X</span> Delete
+      <button class="tbtn" data-tool="entity" aria-pressed="false" title="Click canvas to place a strong entity rectangle. (E)">
+        <span class="ticon" aria-hidden="true">[]</span> Entity
       </button>
-      <button class="tbtn" id="export-btn" title="Download diagram as a PNG image.">
-        <span class="ticon">^</span> Export
+      <button class="tbtn" data-tool="weak-entity" aria-pressed="false" title="Click canvas to place a weak entity (double border). (W)">
+        <span class="ticon" aria-hidden="true">[[]]</span> Weak Entity
       </button>
-      <button class="tbtn" id="clear-btn" title="Remove everything from the canvas.">
-        <span class="ticon">--</span> Clear
+      <button class="tbtn" data-tool="relationship" aria-pressed="false" title="Click canvas to place a relationship diamond. (R)">
+        <span class="ticon" aria-hidden="true">&lt;&gt;</span> Relationship
       </button>
+      <button class="tbtn" data-tool="identifying-rel" aria-pressed="false" title="Click canvas to place an identifying relationship (double diamond). (I)">
+        <span class="ticon" aria-hidden="true">&lt;&lt;&gt;&gt;</span> Ident. Rel.
+      </button>
+      <div class="tsep"></div>
+      <button class="tbtn" id="undo-btn" title="Undo (Ctrl/Cmd+Z)" disabled>
+        <span class="ticon" aria-hidden="true">&lt;-</span> Undo
+      </button>
+      <button class="tbtn" id="redo-btn" title="Redo (Ctrl/Cmd+Shift+Z)" disabled>
+        <span class="ticon" aria-hidden="true">-&gt;</span> Redo
+      </button>
+      <button class="tbtn" id="delete-btn" title="Delete the selected element or connection. (Del)">
+        <span class="ticon" aria-hidden="true">X</span> Delete
+      </button>
+      <div class="tsep"></div>
+      <details class="tmenu">
+        <summary class="tbtn"><span class="ticon" aria-hidden="true">=</span> File</summary>
+        <div class="tmenu-list">
+          <button id="example-btn">Load MLB example</button>
+          <button id="open-btn">Open .json&hellip;</button>
+          <button id="save-btn">Save .json</button>
+          <button id="clear-btn" class="danger">Clear canvas</button>
+        </div>
+      </details>
+      <details class="tmenu">
+        <summary class="tbtn"><span class="ticon" aria-hidden="true">^</span> Export</summary>
+        <div class="tmenu-list">
+          <button id="export-png-btn">PNG image</button>
+          <button id="export-svg-btn">SVG image</button>
+          <button id="export-sql-btn">SQL schema (.sql)</button>
+        </div>
+      </details>
+      <button class="tbtn" id="theme-btn" title="Switch light / dark theme">
+        <span class="ticon" aria-hidden="true">*</span> Theme
+      </button>
+      <input type="file" id="open-input" accept=".json,application/json" hidden>
     </div>
 
     <div id="workspace">
-      <svg id="canvas" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e0e0e0" stroke-width="0.5"/>
-          </pattern>
-        </defs>
-        <rect id="grid-bg" x="-10000" y="-10000" width="30000" height="30000" fill="url(#grid)"/>
-        <g id="connections-layer"></g>
-        <g id="elements-layer"></g>
-      </svg>
+      <div id="canvas-wrap">
+        <svg id="canvas" xmlns="http://www.w3.org/2000/svg" tabindex="0" role="application"
+             aria-label="Diagram canvas. Arrow keys move the selected element, ] and [ step through elements, Delete removes it.">
+          <defs>
+            <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+              <path class="grid-line" d="M 20 0 L 0 0 0 20" fill="none" stroke="#e0e0e0" stroke-width="0.5"/>
+            </pattern>
+          </defs>
+          <rect id="grid-bg" x="-10000" y="-10000" width="30000" height="30000" fill="url(#grid)"/>
+          <g id="connections-layer"></g>
+          <g id="elements-layer"></g>
+        </svg>
+        <div id="zoom-controls">
+          <button class="zbtn" id="zoom-in-btn" title="Zoom in (+)" aria-label="Zoom in">+</button>
+          <button class="zbtn" id="zoom-out-btn" title="Zoom out (-)" aria-label="Zoom out">&minus;</button>
+          <button class="zbtn" id="zoom-fit-btn" title="Fit diagram (Space)" aria-label="Fit diagram to view">Fit</button>
+        </div>
+        <div id="status" role="status" aria-live="polite"></div>
+      </div>
 
       <div id="resize-handle" title="Drag to resize panel"></div>
 
       <div id="side-panel">
         <div id="props-section">
           <h3>Properties</h3>
-          <div id="props-content">
-            <p class="hint">Click an element to edit it.</p>
-            <p class="hint" style="margin-top:8px"><b>Tips:</b></p>
-            <p class="hint">[V] <b>Select</b> &ndash; click to select, drag to move, click empty space to pan</p>
-            <p class="hint">[/] <b>Connect</b> &ndash; click first element, then second to draw line</p>
-            <p class="hint">[] <b>Entity / Weak / Rel</b> &ndash; click canvas to place</p>
-            <p class="hint">[Space] center view &nbsp; [Scroll] zoom</p>
-          </div>
+          <div id="props-content"></div>
         </div>
         <div id="text-resize-handle" title="Drag to resize text area"></div>
         <div id="text-section" class="collapsed">
-          <h3 id="text-toggle"><span class="toggle-arrow">&#9654;</span> Code</h3>
-          <div id="tab-bar">
-            <button class="tab-btn active" data-tab="er">ER Notation</button>
-            <button class="tab-btn" data-tab="schema">DB Schema</button>
-            <button class="small-btn" id="render-btn" title="Parse ER notation and update diagram">Render</button>
+          <h3 id="text-toggle" role="button" tabindex="0" aria-expanded="false"><span class="toggle-arrow" aria-hidden="true">&#9654;</span> Code</h3>
+          <div id="tab-bar" role="tablist">
+            <button class="tab-btn active" data-tab="er" role="tab" aria-selected="true">ER Notation</button>
+            <button class="tab-btn" data-tab="schema" role="tab" aria-selected="false">DB Schema</button>
+            <button class="small-btn" id="render-btn" title="Parse ER notation and replace the diagram">Render</button>
           </div>
           <div class="tab-pane active" id="pane-er">
-            <textarea id="er-input" spellcheck="false" placeholder="Paste ER definition here..."></textarea>
+            <textarea id="er-input" spellcheck="false" aria-label="ER notation" placeholder="ENTITY Student: *id, name, {email}, age()&#10;WEAK Grade: ~term, letter&#10;IDENT earns (Student, Grade) 1:N partial/total"></textarea>
             <button class="copy-btn" data-target="er-input" title="Copy to clipboard">Copy</button>
           </div>
           <div class="tab-pane" id="pane-schema">
-            <textarea id="schema-output" spellcheck="false" readonly placeholder="SQL schema auto-generates from the diagram..."></textarea>
+            <textarea id="schema-output" spellcheck="false" readonly aria-label="Generated SQL schema" placeholder="SQL schema auto-generates from the diagram..."></textarea>
             <button class="copy-btn" data-target="schema-output" title="Copy to clipboard">Copy</button>
           </div>
         </div>
       </div>
     </div>
   </div>
-  <script src="app.js"></script>
   <script src="mlb.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
