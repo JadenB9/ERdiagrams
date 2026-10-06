@@ -22,7 +22,7 @@
     viewBox: { x: -100, y: -50, w: 1800, h: 1200 }
   };
 
-  let svg, elemLayer, connLayer, propsContent, erInput;
+  let svg, elemLayer, connLayer, propsContent, erInput, schemaOutput;
 
   function init() {
     svg = document.getElementById('canvas');
@@ -30,12 +30,14 @@
     connLayer = document.getElementById('connections-layer');
     propsContent = document.getElementById('props-content');
     erInput = document.getElementById('er-input');
+    schemaOutput = document.getElementById('schema-output');
 
     setupToolbar();
     setupCanvasEvents();
     setupKeyboard();
     setupResizeHandle();
     setupTextToggle();
+    setupTabs();
     setupTextResize();
     updateViewBox();
     loadState();
@@ -57,8 +59,7 @@
   }
 
   function setupTextToggle() {
-    document.getElementById('text-toggle').addEventListener('click', e => {
-      if (e.target.closest('.small-btn')) return;
+    document.getElementById('text-toggle').addEventListener('click', () => {
       document.getElementById('text-section').classList.toggle('collapsed');
     });
   }
@@ -95,6 +96,7 @@
         state.selectedConnId = null;
         state.nextId = 1;
         erInput.value = '';
+        schemaOutput.value = '';
         render();
         showDefaultProps();
         saveState();
@@ -271,7 +273,7 @@
       attributes: []
     };
     if (type === 'entity' || type === 'weak-entity')
-      el.attributes.push({ name: 'id', pk: true, discriminator: false, multivalued: false, derived: false });
+      el.attributes.push({ name: 'id', pk: true, discriminator: false, multivalued: false, derived: false, dataType: '' });
     state.elements.push(el);
     selectElement(el.id);
     render(); saveState();
@@ -591,13 +593,15 @@
 
   function parseAttrs(str) {
     return str.split(',').map(a => a.trim()).filter(Boolean).map(a => {
-      const attr = { name: a, pk: false, discriminator: false, multivalued: false, derived: false };
+      const attr = { name: a, pk: false, discriminator: false, multivalued: false, derived: false, dataType: '' };
       if (a.startsWith('*')) { attr.pk = true; attr.name = a.slice(1); }
       else if (a.startsWith('~')) { attr.discriminator = true; attr.name = a.slice(1); }
       if (attr.name.startsWith('{') && attr.name.endsWith('}')) {
         attr.multivalued = true; attr.name = attr.name.slice(1, -1);
       }
       if (attr.name.endsWith('()')) { attr.derived = true; attr.name = attr.name.slice(0, -2); }
+      const colonIdx = attr.name.indexOf(':');
+      if (colonIdx > 0) { attr.dataType = attr.name.slice(colonIdx + 1); attr.name = attr.name.slice(0, colonIdx); }
       return attr;
     });
   }
@@ -620,6 +624,18 @@
     html += `<div class="prop-group"><label>Attributes</label><ul class="attr-list" id="attr-list">`;
     (el.attributes || []).forEach((attr, i) => {
       html += `<li class="attr-item"><input type="text" value="${esc(attr.name)}" class="attr-name-input" data-idx="${i}">
+        <select class="attr-type-select" data-idx="${i}">
+          <option value="" ${!attr.dataType ? 'selected' : ''}>Auto</option>
+          <option value="INT" ${attr.dataType === 'INT' ? 'selected' : ''}>INT</option>
+          <option value="SERIAL" ${attr.dataType === 'SERIAL' ? 'selected' : ''}>SERIAL</option>
+          <option value="VARCHAR" ${attr.dataType === 'VARCHAR' ? 'selected' : ''}>VARCHAR</option>
+          <option value="TEXT" ${attr.dataType === 'TEXT' ? 'selected' : ''}>TEXT</option>
+          <option value="DATE" ${attr.dataType === 'DATE' ? 'selected' : ''}>DATE</option>
+          <option value="TIMESTAMP" ${attr.dataType === 'TIMESTAMP' ? 'selected' : ''}>TIMESTAMP</option>
+          <option value="DECIMAL" ${attr.dataType === 'DECIMAL' ? 'selected' : ''}>DECIMAL</option>
+          <option value="BOOLEAN" ${attr.dataType === 'BOOLEAN' ? 'selected' : ''}>BOOLEAN</option>
+          <option value="FLOAT" ${attr.dataType === 'FLOAT' ? 'selected' : ''}>FLOAT</option>
+        </select>
         <div class="attr-flags">`;
       if (isEntity) {
         html += `<button class="attr-flag ${attr.pk ? 'active' : ''}" data-flag="pk" data-idx="${i}">PK</button>`;
@@ -638,6 +654,9 @@
     document.querySelectorAll('.attr-name-input').forEach(inp => {
       inp.oninput = e => { const i = parseInt(e.target.dataset.idx); if (el.attributes[i]) { el.attributes[i].name = e.target.value; render(); saveState(); } };
     });
+    document.querySelectorAll('.attr-type-select').forEach(sel => {
+      sel.onchange = e => { const i = parseInt(e.target.dataset.idx); if (el.attributes[i]) { el.attributes[i].dataType = e.target.value; saveState(); } };
+    });
     document.querySelectorAll('.attr-flag').forEach(btn => {
       btn.onclick = e => {
         const i = parseInt(e.target.dataset.idx), f = e.target.dataset.flag;
@@ -654,7 +673,7 @@
     });
     document.getElementById('add-attr-btn').onclick = () => {
       if (!el.attributes) el.attributes = [];
-      el.attributes.push({ name: 'attr', pk: false, discriminator: false, multivalued: false, derived: false });
+      el.attributes.push({ name: 'attr', pk: false, discriminator: false, multivalued: false, derived: false, dataType: '' });
       render(); showElementProps(el); saveState();
       setTimeout(() => { const inputs = document.querySelectorAll('.attr-name-input'); if (inputs.length) { inputs[inputs.length - 1].focus(); inputs[inputs.length - 1].select(); } }, 30);
     };
@@ -685,6 +704,234 @@
     document.getElementById('c-del').onclick = deleteSelected;
   }
 
+  // ==================== TABS ====================
+  function setupTabs() {
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const renderBtn = document.getElementById('render-btn');
+    tabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        tabBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+        document.getElementById('pane-' + btn.dataset.tab).classList.add('active');
+        renderBtn.style.display = btn.dataset.tab === 'er' ? '' : 'none';
+      });
+    });
+    document.querySelectorAll('.copy-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = document.getElementById(btn.dataset.target);
+        if (!target || !target.value) return;
+        navigator.clipboard.writeText(target.value).then(() => {
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+        });
+      });
+    });
+  }
+
+  // ==================== SYNC OUTPUTS ====================
+  function syncOutputs() {
+    if (state.elements.length === 0) { erInput.value = ''; schemaOutput.value = ''; return; }
+    erInput.value = generateERText();
+    schemaOutput.value = generateSchema();
+  }
+
+  function generateERText() {
+    if (state.elements.length === 0) return '';
+    const entityMap = {};
+    const relEls = [];
+    state.elements.forEach(el => {
+      if (el.type === 'entity' || el.type === 'weak-entity') entityMap[el.id] = el;
+      else relEls.push(el);
+    });
+    const lines = [];
+    Object.values(entityMap).forEach(el => {
+      const prefix = el.type === 'weak-entity' ? 'WEAK' : 'ENTITY';
+      const attrs = (el.attributes || []).map(a => {
+        let n = a.name;
+        if (a.dataType) n += ':' + a.dataType;
+        if (a.derived) n += '()';
+        if (a.multivalued) n = '{' + n + '}';
+        if (a.pk) n = '*' + n;
+        else if (a.discriminator) n = '~' + n;
+        return n;
+      });
+      lines.push(prefix + ' ' + el.name + ': ' + attrs.join(', '));
+    });
+    if (relEls.length > 0) lines.push('');
+    relEls.forEach(rel => {
+      const conns = state.connections.filter(c => c.fromId === rel.id || c.toId === rel.id);
+      const ents = [], cards = [], parts = [];
+      conns.forEach(c => {
+        const otherId = c.fromId === rel.id ? c.toId : c.fromId;
+        const otherEl = entityMap[otherId];
+        if (!otherEl) return;
+        ents.push(otherEl);
+        if (c.fromId === rel.id) cards.push(c.arrowTo ? '1' : 'N');
+        else cards.push(c.arrowFrom ? '1' : 'N');
+        parts.push(c.isDouble ? 'total' : 'partial');
+      });
+      if (ents.length < 2) return;
+      const prefix = rel.type === 'identifying-rel' ? 'IDENT' : 'REL';
+      const cardStr = (cards[0] === 'N' && cards[1] === 'N') ? 'M:N' : cards.join(':');
+      let line = prefix + ' ' + rel.name + ' (' + ents[0].name + ', ' + ents[1].name + ') ' + cardStr + ' ' + parts.join('/');
+      if (rel.attributes && rel.attributes.length > 0)
+        line += ' [' + rel.attributes.map(a => a.name).join(', ') + ']';
+      lines.push(line);
+    });
+    return lines.join('\n');
+  }
+
+  function generateSchema() {
+    if (state.elements.length === 0) return '';
+    const entityMap = {};
+    const relEls = [];
+    state.elements.forEach(el => {
+      if (el.type === 'entity' || el.type === 'weak-entity') entityMap[el.id] = el;
+      else relEls.push(el);
+    });
+    // Find weak entity owners via identifying relationships
+    const weakOwner = {};
+    relEls.forEach(rel => {
+      if (rel.type !== 'identifying-rel') return;
+      const conns = state.connections.filter(c => c.fromId === rel.id || c.toId === rel.id);
+      let strongEl = null, weakEl = null;
+      conns.forEach(c => {
+        const otherId = c.fromId === rel.id ? c.toId : c.fromId;
+        const el = entityMap[otherId];
+        if (!el) return;
+        if (el.type === 'weak-entity') weakEl = el;
+        else if (!strongEl) strongEl = el;
+      });
+      if (weakEl && strongEl) weakOwner[weakEl.id] = strongEl;
+    });
+    const out = ['-- Generated SQL Schema from ER Diagram', ''];
+    // Strong entities
+    Object.values(entityMap).filter(e => e.type === 'entity').forEach(el => {
+      const cols = [], pks = [], mv = [];
+      (el.attributes || []).forEach(a => {
+        if (a.derived) return;
+        if (a.multivalued) { mv.push(a); return; }
+        cols.push('  ' + toSnakeCase(a.name) + ' ' + sqlType(a) + (a.pk ? ' NOT NULL' : ''));
+        if (a.pk) pks.push(toSnakeCase(a.name));
+      });
+      if (pks.length) cols.push('  PRIMARY KEY (' + pks.join(', ') + ')');
+      out.push('CREATE TABLE ' + toSnakeCase(el.name) + ' (');
+      out.push(cols.join(',\n'));
+      out.push(');');
+      out.push('');
+      mv.forEach(a => {
+        const pk = pks[0] || toSnakeCase(el.name) + '_id';
+        out.push('CREATE TABLE ' + toSnakeCase(el.name) + '_' + toSnakeCase(a.name) + ' (');
+        out.push('  ' + pk + ' INT NOT NULL,');
+        out.push('  ' + toSnakeCase(a.name) + ' VARCHAR(255) NOT NULL,');
+        out.push('  PRIMARY KEY (' + pk + ', ' + toSnakeCase(a.name) + '),');
+        out.push('  FOREIGN KEY (' + pk + ') REFERENCES ' + toSnakeCase(el.name) + '(' + pk + ')');
+        out.push(');');
+        out.push('');
+      });
+    });
+    // Weak entities
+    Object.values(entityMap).filter(e => e.type === 'weak-entity').forEach(el => {
+      const cols = [], pks = [], fks = [];
+      const owner = weakOwner[el.id];
+      if (owner) {
+        const ownerPk = (owner.attributes || []).find(a => a.pk);
+        const fkName = toSnakeCase(owner.name) + '_' + (ownerPk ? toSnakeCase(ownerPk.name) : 'id');
+        cols.push('  ' + fkName + ' INT NOT NULL');
+        pks.push(fkName);
+        fks.push('  FOREIGN KEY (' + fkName + ') REFERENCES ' + toSnakeCase(owner.name) + '(' + (ownerPk ? toSnakeCase(ownerPk.name) : 'id') + ')');
+      }
+      (el.attributes || []).forEach(a => {
+        if (a.derived || a.multivalued) return;
+        cols.push('  ' + toSnakeCase(a.name) + ' ' + sqlType(a) + ((a.pk || a.discriminator) ? ' NOT NULL' : ''));
+        if (a.discriminator || a.pk) pks.push(toSnakeCase(a.name));
+      });
+      if (pks.length) cols.push('  PRIMARY KEY (' + pks.join(', ') + ')');
+      fks.forEach(fk => cols.push(fk));
+      out.push('CREATE TABLE ' + toSnakeCase(el.name) + ' (');
+      out.push(cols.join(',\n'));
+      out.push(');');
+      out.push('');
+    });
+    // Regular relationships
+    relEls.forEach(rel => {
+      if (rel.type === 'identifying-rel') return;
+      const conns = state.connections.filter(c => c.fromId === rel.id || c.toId === rel.id);
+      const ents = [], cards = [];
+      conns.forEach(c => {
+        const otherId = c.fromId === rel.id ? c.toId : c.fromId;
+        const el = entityMap[otherId];
+        if (!el) return;
+        ents.push(el);
+        if (c.fromId === rel.id) cards.push(c.arrowTo ? '1' : 'N');
+        else cards.push(c.arrowFrom ? '1' : 'N');
+      });
+      if (ents.length < 2) return;
+      if (cards[0] !== '1' && cards[1] !== '1') {
+        // M:N junction table
+        const cols = [], pkParts = [], fkParts = [];
+        ents.forEach(ent => {
+          const pk = (ent.attributes || []).find(a => a.pk || a.discriminator);
+          const fkName = toSnakeCase(ent.name) + '_' + (pk ? toSnakeCase(pk.name) : 'id');
+          cols.push('  ' + fkName + ' INT NOT NULL');
+          pkParts.push(fkName);
+          fkParts.push('  FOREIGN KEY (' + fkName + ') REFERENCES ' + toSnakeCase(ent.name) + '(' + (pk ? toSnakeCase(pk.name) : 'id') + ')');
+        });
+        (rel.attributes || []).forEach(a => {
+          cols.push('  ' + toSnakeCase(a.name) + ' ' + sqlType(a));
+        });
+        cols.push('  PRIMARY KEY (' + pkParts.join(', ') + ')');
+        fkParts.forEach(fk => cols.push(fk));
+        out.push('-- M:N relationship: ' + rel.name);
+        out.push('CREATE TABLE ' + toSnakeCase(rel.name) + ' (');
+        out.push(cols.join(',\n'));
+        out.push(');');
+        out.push('');
+      } else {
+        // 1:N or 1:1 — FK on the many side
+        let oneSide, manySide;
+        if (cards[0] === '1') { oneSide = ents[0]; manySide = ents[1]; }
+        else { oneSide = ents[1]; manySide = ents[0]; }
+        const pk = (oneSide.attributes || []).find(a => a.pk || a.discriminator);
+        const fkName = toSnakeCase(oneSide.name) + '_' + (pk ? toSnakeCase(pk.name) : 'id');
+        const refCol = pk ? toSnakeCase(pk.name) : 'id';
+        out.push('-- ' + cards.join(':') + ' relationship: ' + rel.name);
+        out.push('ALTER TABLE ' + toSnakeCase(manySide.name));
+        out.push('  ADD ' + fkName + ' INT REFERENCES ' + toSnakeCase(oneSide.name) + '(' + refCol + ');');
+        (rel.attributes || []).forEach(a => {
+          out.push('ALTER TABLE ' + toSnakeCase(manySide.name));
+          out.push('  ADD ' + toSnakeCase(a.name) + ' ' + sqlType(a) + ';');
+        });
+        out.push('');
+      }
+    });
+    return out.join('\n');
+  }
+
+  function sqlType(attr) {
+    if (attr.dataType) {
+      if (attr.dataType === 'VARCHAR') return 'VARCHAR(255)';
+      if (attr.dataType === 'DECIMAL') return 'DECIMAL(10,2)';
+      return attr.dataType;
+    }
+    return inferSqlType(attr.name);
+  }
+
+  function inferSqlType(name) {
+    const n = name.toLowerCase();
+    if (n === 'id' || n.endsWith('_id')) return 'INT';
+    if (n.includes('date')) return 'DATE';
+    if (n === 'year' || n === 'age') return 'INT';
+    if (n.includes('price') || n.includes('salary') || n.includes('cost') || n.includes('amount')) return 'DECIMAL(10,2)';
+    return 'VARCHAR(255)';
+  }
+
+  function toSnakeCase(str) {
+    return str.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase().replace(/\s+/g, '_');
+  }
+
   // ==================== HELPERS ====================
   function createSVG(tag, attrs, parent) {
     const el = document.createElementNS(SVG_NS, tag);
@@ -698,12 +945,13 @@
   // ==================== SAVE/LOAD ====================
   function saveState() {
     try { localStorage.setItem('erDiagram', JSON.stringify({ elements: state.elements, connections: state.connections, nextId: state.nextId })); } catch (e) {}
+    syncOutputs();
   }
 
   function loadState() {
     try {
       const d = JSON.parse(localStorage.getItem('erDiagram'));
-      if (d && d.elements) { state.elements = d.elements; state.connections = d.connections || []; state.nextId = d.nextId || 1; render(); }
+      if (d && d.elements) { state.elements = d.elements; state.connections = d.connections || []; state.nextId = d.nextId || 1; render(); syncOutputs(); }
     } catch (e) {}
   }
 

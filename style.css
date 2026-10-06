@@ -66,23 +66,49 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; o
 .toggle-arrow { font-size: 10px; transition: transform .2s; }
 #text-section.collapsed .toggle-arrow { transform: rotate(0deg); }
 #text-section:not(.collapsed) .toggle-arrow { transform: rotate(90deg); }
+#text-section:not(.collapsed) { height: 240px; min-height: 80px; max-height: 500px; }
 .small-btn {
-  margin-left: auto; padding: 2px 8px; border: 1px solid #0066cc; border-radius: 3px;
+  padding: 2px 8px; border: 1px solid #0066cc; border-radius: 3px;
   background: #0066cc; color: white; font-size: 10px; cursor: pointer; font-weight: 600;
 }
 .small-btn:hover { background: #0055aa; }
-#er-input {
-  height: 0; padding: 0; border: none; font-family: 'SF Mono','Menlo',monospace;
-  font-size: 11px; line-height: 1.5; resize: none; background: #1e1e1e;
-  color: #d4d4d4; outline: none; overflow: hidden;
+
+/* TAB BAR */
+#tab-bar {
+  display: flex; align-items: center; gap: 2px; padding: 4px 8px;
+  background: #252525; border-bottom: 1px solid #333; flex-shrink: 0;
 }
-#text-section:not(.collapsed) #er-input {
-  flex: 1; min-height: 60px; padding: 8px 10px; overflow: auto;
+#text-section.collapsed #tab-bar { display: none; }
+.tab-btn {
+  padding: 3px 10px; border: 1px solid #444; border-bottom: none;
+  border-radius: 3px 3px 0 0; background: #2a2a2a; color: #777;
+  font-size: 11px; cursor: pointer; transition: all .15s;
 }
-#text-section:not(.collapsed) {
-  height: 240px; min-height: 80px; max-height: 500px;
+.tab-btn:hover { color: #ccc; background: #333; }
+.tab-btn.active { background: #1e1e1e; color: #d4d4d4; border-color: #555; }
+#tab-bar .small-btn { margin-left: auto; }
+
+/* TAB PANES */
+.tab-pane { display: none; flex: 1; min-height: 0; }
+#text-section:not(.collapsed) .tab-pane.active { display: flex; flex-direction: column; }
+
+/* CODE TEXTAREAS */
+#er-input, #schema-output {
+  flex: 1; min-height: 60px; padding: 8px 10px; border: none;
+  font-family: 'SF Mono','Menlo',monospace; font-size: 11px; line-height: 1.5;
+  resize: none; background: #1e1e1e; color: #d4d4d4; outline: none; overflow: auto;
 }
-#er-input::placeholder { color: #555; }
+#er-input::placeholder, #schema-output::placeholder { color: #555; }
+.tab-pane { position: relative; }
+.copy-btn {
+  position: absolute; top: 6px; right: 8px; padding: 2px 8px;
+  border: 1px solid #555; border-radius: 3px; background: #333;
+  color: #aaa; font-size: 10px; cursor: pointer; z-index: 1;
+  transition: all .15s; opacity: 0; pointer-events: none;
+}
+.tab-pane:hover .copy-btn { opacity: 1; pointer-events: auto; }
+.copy-btn:hover { background: #444; color: #fff; border-color: #777; }
+.copy-btn.copied { background: #1a6b2a; border-color: #2a8a3a; color: #fff; }
 
 /* SVG */
 .er-element { cursor: move; }
@@ -103,6 +129,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; o
 .attr-list { list-style: none; margin-bottom: 6px; }
 .attr-item { display: flex; align-items: center; gap: 3px; padding: 2px 0; border-bottom: 1px solid #eee; }
 .attr-item input[type="text"] { flex: 1; padding: 2px 5px; border: 1px solid #ddd; border-radius: 3px; font-size: 11px; min-width: 0; }
+/* `.prop-group select { width: 100% }` above outranks a bare `.attr-type-select`,
+   so the type dropdown stretched to the full row and squeezed the attribute
+   name box down to a few pixels. Matched on the row to win the cascade. */
+.attr-item .attr-type-select {
+  width: 62px; padding: 1px 2px; border: 1px solid #ddd; border-radius: 3px;
+  font-size: 9px; color: #666; background: #fff; flex-shrink: 0; cursor: pointer;
+}
+.attr-item .attr-type-select:focus { border-color: #0066cc; outline: none; }
 .attr-flags { display: flex; gap: 2px; flex-shrink: 0; }
 .attr-flag {
   padding: 1px 4px; border: 1px solid #ccc; border-radius: 3px;

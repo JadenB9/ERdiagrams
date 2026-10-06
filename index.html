@@ -68,10 +68,20 @@
         </div>
         <div id="text-resize-handle" title="Drag to resize text area"></div>
         <div id="text-section" class="collapsed">
-          <h3 id="text-toggle">ER Text Input <span class="toggle-arrow">&#9654;</span>
-            <button class="small-btn" id="render-btn">Render</button>
-          </h3>
-          <textarea id="er-input" spellcheck="false" placeholder="Paste ER definition here..."></textarea>
+          <h3 id="text-toggle"><span class="toggle-arrow">&#9654;</span> Code</h3>
+          <div id="tab-bar">
+            <button class="tab-btn active" data-tab="er">ER Notation</button>
+            <button class="tab-btn" data-tab="schema">DB Schema</button>
+            <button class="small-btn" id="render-btn" title="Parse ER notation and update diagram">Render</button>
+          </div>
+          <div class="tab-pane active" id="pane-er">
+            <textarea id="er-input" spellcheck="false" placeholder="Paste ER definition here..."></textarea>
+            <button class="copy-btn" data-target="er-input" title="Copy to clipboard">Copy</button>
+          </div>
+          <div class="tab-pane" id="pane-schema">
+            <textarea id="schema-output" spellcheck="false" readonly placeholder="SQL schema auto-generates from the diagram..."></textarea>
+            <button class="copy-btn" data-target="schema-output" title="Copy to clipboard">Copy</button>
+          </div>
         </div>
       </div>
     </div>
