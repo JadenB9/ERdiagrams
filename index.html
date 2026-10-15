@@ -15,38 +15,38 @@
 <body>
   <div id="app">
     <div id="toolbar" role="toolbar" aria-label="Diagram tools">
-      <button class="tbtn active" data-tool="select" aria-pressed="true" title="Select &amp; move elements. Drag empty canvas to pan. (V)">
-        <span class="ticon" aria-hidden="true">V</span> Select
+      <button class="tbtn active" data-tool="select" aria-pressed="true" title="Select &amp; move elements. Drag empty canvas to pan, Shift+drag to box-select. (V)">
+        <svg class="ticon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M3 2l9.5 7.6-4 .7 2.3 3.7-1.8 1-2.3-3.7L3.9 14z"/></svg> Select
       </button>
       <button class="tbtn" data-tool="connect" aria-pressed="false" title="Click two elements to draw a line between them. (C)">
-        <span class="ticon" aria-hidden="true">/</span> Connect
+        <svg class="ticon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="3.5" cy="12.5" r="1.8"/><circle cx="12.5" cy="3.5" r="1.8"/><path d="M5 11l6-6"/></svg> Connect
       </button>
       <div class="tsep"></div>
       <button class="tbtn" data-tool="entity" aria-pressed="false" title="Click canvas to place a strong entity rectangle. (E)">
-        <span class="ticon" aria-hidden="true">[]</span> Entity
+        <svg class="ticon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2" y="3.5" width="12" height="9" rx="1"/></svg> Entity
       </button>
       <button class="tbtn" data-tool="weak-entity" aria-pressed="false" title="Click canvas to place a weak entity (double border). (W)">
-        <span class="ticon" aria-hidden="true">[[]]</span> Weak Entity
+        <svg class="ticon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" rx="1"/><rect x="4.2" y="5.2" width="7.6" height="5.6" rx=".5"/></svg> Weak Entity
       </button>
       <button class="tbtn" data-tool="relationship" aria-pressed="false" title="Click canvas to place a relationship diamond. (R)">
-        <span class="ticon" aria-hidden="true">&lt;&gt;</span> Relationship
+        <svg class="ticon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M8 2l6 6-6 6-6-6z"/></svg> Relationship
       </button>
       <button class="tbtn" data-tool="identifying-rel" aria-pressed="false" title="Click canvas to place an identifying relationship (double diamond). (I)">
-        <span class="ticon" aria-hidden="true">&lt;&lt;&gt;&gt;</span> Ident. Rel.
+        <svg class="ticon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.5l6.5 6.5-6.5 6.5L1.5 8z"/><path d="M8 4.8L11.2 8 8 11.2 4.8 8z"/></svg> Ident. Rel.
       </button>
       <div class="tsep"></div>
       <button class="tbtn" id="undo-btn" title="Undo (Ctrl/Cmd+Z)" disabled>
-        <span class="ticon" aria-hidden="true">&lt;-</span> Undo
+        <svg class="ticon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7.5h6.5a3 3 0 0 1 0 6H6"/><path d="M6.5 4.5L3.5 7.5l3 3"/></svg> Undo
       </button>
       <button class="tbtn" id="redo-btn" title="Redo (Ctrl/Cmd+Shift+Z)" disabled>
-        <span class="ticon" aria-hidden="true">-&gt;</span> Redo
+        <svg class="ticon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7.5H5.5a3 3 0 0 0 0 6H10"/><path d="M9.5 4.5l3 3-3 3"/></svg> Redo
       </button>
-      <button class="tbtn" id="delete-btn" title="Delete the selected element or connection. (Del)">
-        <span class="ticon" aria-hidden="true">X</span> Delete
+      <button class="tbtn" id="delete-btn" title="Delete the selection. (Del)">
+        <svg class="ticon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 9h5.8l.6-9"/></svg> Delete
       </button>
       <div class="tsep"></div>
       <details class="tmenu">
-        <summary class="tbtn"><span class="ticon" aria-hidden="true">=</span> File</summary>
+        <summary class="tbtn"><svg class="ticon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M4 2h5.5L13 5.5V14H4z"/><path d="M9.5 2v3.5H13"/></svg> File</summary>
         <div class="tmenu-list">
           <button id="example-btn">Load MLB example</button>
           <button id="open-btn">Open .json&hellip;</button>
@@ -55,7 +55,7 @@
         </div>
       </details>
       <details class="tmenu">
-        <summary class="tbtn"><span class="ticon" aria-hidden="true">^</span> Export</summary>
+        <summary class="tbtn"><svg class="ticon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 10V2.5M5 5.5l3-3 3 3"/><path d="M3 9.5v4h10v-4"/></svg> Export</summary>
         <div class="tmenu-list">
           <button id="export-png-btn">PNG image</button>
           <button id="export-svg-btn">SVG image</button>
