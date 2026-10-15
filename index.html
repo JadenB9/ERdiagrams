@@ -51,7 +51,11 @@
       <details class="tmenu">
         <summary class="tbtn"><svg class="ticon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M4 2h5.5L13 5.5V14H4z"/><path d="M9.5 2v3.5H13"/></svg> File</summary>
         <div class="tmenu-list">
-          <button id="example-btn">Load MLB example</button>
+          <span class="tmenu-head">Examples</span>
+          <button class="example-btn" id="example-btn" data-sample="mlb">MLB baseball (HW7)</button>
+          <button class="example-btn" data-sample="university">University</button>
+          <button class="example-btn" data-sample="store">Online store</button>
+          <div class="tmenu-sep"></div>
           <button id="open-btn">Open .json&hellip;</button>
           <button id="save-btn">Save .json</button>
           <button id="clear-btn" class="danger">Clear canvas</button>
@@ -124,6 +128,7 @@
     </div>
   </div>
   <script src="mlb.js"></script>
+  <script src="samples.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

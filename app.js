@@ -143,9 +143,13 @@
     document.getElementById('save-btn').addEventListener('click', saveFile);
     document.getElementById('open-btn').addEventListener('click', () => document.getElementById('open-input').click());
     document.getElementById('open-input').addEventListener('change', openFile);
-    document.getElementById('example-btn').addEventListener('click', () => {
-      erInput.value = loadMLBText();
-      parseAndRender();
+    document.querySelectorAll('.example-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sample = ER_SAMPLES[btn.dataset.sample];
+        if (!sample) return;
+        erInput.value = sample.text();
+        parseAndRender();
+      });
     });
     document.getElementById('theme-btn').addEventListener('click', toggleTheme);
     document.getElementById('zoom-in-btn').addEventListener('click', () => zoomAt(0.8));
@@ -1122,7 +1126,7 @@
       <p class="hint"><kbd>Space</kbd> fit view &nbsp; <kbd>+</kbd><kbd>&minus;</kbd> or scroll / pinch to zoom</p>
       <p class="hint"><kbd>[</kbd><kbd>]</kbd> step through elements &nbsp; arrows move, <kbd>Shift</kbd> for bigger steps</p>
       <p class="hint"><kbd>Ctrl/Cmd+Z</kbd> undo &nbsp; <kbd>Ctrl/Cmd+Shift+Z</kbd> redo</p>
-      <p class="hint">File &rsaquo; <b>Load MLB example</b> to see the text format in action.</p>`;
+      <p class="hint">File &rsaquo; <b>Examples</b> loads a sample diagram and shows the text format in action.</p>`;
   }
 
   function showElementProps(el) {

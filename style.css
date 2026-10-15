@@ -72,6 +72,8 @@ svg.ticon { width: 14px; height: 14px; flex-shrink: 0; }
 }
 .tmenu-list button:hover, .tmenu-list button:focus-visible { background: var(--bar-btn-hover); color: #fff; }
 .tmenu-list button.danger { color: #f08a8a; }
+.tmenu-head { padding: 4px 10px 2px; font-size: 10px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase; color: #9a9a9a; }
+.tmenu-sep { height: 1px; background: var(--bar-line); margin: 3px 0; }
 .tmenu-check {
   display: flex; align-items: center; gap: 6px; padding: 7px 10px 5px; margin-top: 3px;
   border-top: 1px solid var(--bar-line); color: var(--bar-text); font-size: 12px; cursor: pointer; white-space: nowrap;
