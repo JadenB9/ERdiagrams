@@ -257,6 +257,14 @@ svg.ticon { width: 14px; height: 14px; flex-shrink: 0; }
 .prop-btn:hover { background: var(--line-soft); }
 .prop-btn.danger { color: var(--danger); border-color: #c99; }
 .prop-btn.danger:hover { background: rgba(204, 51, 51, .1); }
+.prop-btn:disabled { opacity: .45; cursor: default; }
+.prop-btn:disabled:hover { background: var(--input); }
+.btn-row { display: flex; gap: 3px; margin-bottom: 4px; }
+.btn-row .prop-btn { flex: 1; margin-right: 0; }
+#canvas .marquee {
+  fill: var(--select); fill-opacity: .08; stroke: var(--select); stroke-width: 1;
+  stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; pointer-events: none;
+}
 .conn-side { padding: 6px; background: var(--panel-head); border-radius: 3px; margin-bottom: 6px; }
 .conn-side h4 { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
 .conn-options label { font-size: 11px; color: var(--text); display: flex; align-items: center; gap: 4px; }

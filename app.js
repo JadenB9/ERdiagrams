@@ -18,10 +18,12 @@
     connections: [],
     nextId: 1,
     selectedId: null,
+    selectedIds: [],
     selectedConnId: null,
     tool: 'select',
     connectFromId: null,
     drag: null,
+    marquee: null,
     pan: null,
     pinch: null,
     viewBox: { x: -100, y: -50, w: 1800, h: 1200 }
@@ -34,12 +36,13 @@
   const pointers = new Map();
   let lastTap = { id: null, at: 0 };
   let statusTimer = null;
-  let svg, elemLayer, connLayer, propsContent, erInput, schemaOutput;
+  let svg, elemLayer, connLayer, overlayLayer, propsContent, erInput, schemaOutput;
 
   function init() {
     svg = document.getElementById('canvas');
     elemLayer = document.getElementById('elements-layer');
     connLayer = document.getElementById('connections-layer');
+    overlayLayer = document.getElementById('overlay-layer');
     propsContent = document.getElementById('props-content');
     erInput = document.getElementById('er-input');
     schemaOutput = document.getElementById('schema-output');
@@ -147,8 +150,7 @@
       if (!confirm('Clear all elements?')) return;
       state.elements = [];
       state.connections = [];
-      state.selectedId = null;
-      state.selectedConnId = null;
+      clearSelection();
       state.nextId = 1;
       render();
       showDefaultProps();
@@ -246,6 +248,7 @@
     if (pointers.size === 2) {
       // second finger: whatever the first one started becomes a pinch
       if (state.drag) { state.drag = null; saveState(); }
+      if (state.marquee) { state.marquee = null; drawMarquee(); }
       state.pan = null;
       const [a, b] = [...pointers.values()];
       state.pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, vb: { ...state.viewBox } };
@@ -262,13 +265,20 @@
         const id = parseInt(elemG.dataset.id);
         if (state.tool === 'connect') {
           handleConnectClick(id);
+        } else if (e.shiftKey) {
+          toggleSelected(id);
         } else {
           const now = Date.now();
           const again = lastTap.id === id && now - lastTap.at < 400;
           lastTap = { id, at: now };
-          selectElement(id);
-          const el = getElement(id);
-          if (el) state.drag = { id, startX: svgPt.x, startY: svgPt.y, origX: el.x, origY: el.y };
+          // pressing one of several selected keeps the group so they drag together;
+          // if it turns out to be just a click, pointerup narrows down to that one
+          const inGroup = isSelected(id) && state.selectedIds.length > 1;
+          if (!inGroup) selectElement(id);
+          state.drag = {
+            startX: svgPt.x, startY: svgPt.y, moved: false, clickOnly: inGroup ? id : null,
+            items: state.selectedIds.map(i => { const el = getElement(i); return { id: i, origX: el.x, origY: el.y }; })
+          };
           if (again) focusNameField();
         }
         return;
@@ -278,7 +288,9 @@
         return;
       }
       // Empty canvas
-      if (state.tool === 'select' || state.tool === 'connect') {
+      if (state.tool === 'select' && e.shiftKey) {
+        startMarquee(svgPt);
+      } else if (state.tool === 'select' || state.tool === 'connect') {
         startPan(e);
         deselectAll();
       } else {
@@ -294,6 +306,48 @@
   function startPan(e) {
     state.pan = { startX: e.clientX, startY: e.clientY, startVB: { ...state.viewBox } };
     svg.classList.add('panning');
+  }
+
+  // Shift+drag on empty canvas draws a box; everything it touches gets selected.
+  function startMarquee(pt) {
+    state.marquee = { x0: pt.x, y0: pt.y, x1: pt.x, y1: pt.y };
+    drawMarquee();
+  }
+
+  function marqueeRect() {
+    const m = state.marquee;
+    return { x: Math.min(m.x0, m.x1), y: Math.min(m.y0, m.y1), w: Math.abs(m.x1 - m.x0), h: Math.abs(m.y1 - m.y0) };
+  }
+
+  function drawMarquee() {
+    let r = overlayLayer.querySelector('.marquee');
+    if (!state.marquee) { if (r) r.remove(); return; }
+    if (!r) r = createSVG('rect', { class: 'marquee' }, overlayLayer);
+    const b = marqueeRect();
+    r.setAttribute('x', b.x); r.setAttribute('y', b.y);
+    r.setAttribute('width', b.w); r.setAttribute('height', b.h);
+  }
+
+  function finishMarquee() {
+    const b = marqueeRect();
+    state.marquee = null;
+    drawMarquee();
+    const hits = state.elements.filter(el => {
+      const e = elemBox(el);
+      return e.x < b.x + b.w && e.x + e.w > b.x && e.y < b.y + b.h && e.y + e.h > b.y;
+    }).map(el => el.id);
+    if (hits.length) setSelection(hits);
+    else deselectAll();
+  }
+
+  // Dragging only moves the groups that changed and redraws the lines, instead
+  // of rebuilding every element on every pointer event.
+  function renderMoved(moved) {
+    moved.forEach(el => {
+      const g = elemLayer.querySelector(`.er-element[data-id="${el.id}"]`);
+      if (g) g.setAttribute('transform', `translate(${el.x}, ${el.y})`);
+    });
+    renderConnections();
   }
 
   function onPointerMove(e) {
@@ -324,14 +378,24 @@
       updateViewBox();
       return;
     }
+    if (state.marquee) {
+      const svgPt = screenToSVG(e.clientX, e.clientY);
+      state.marquee.x1 = svgPt.x; state.marquee.y1 = svgPt.y;
+      drawMarquee();
+      return;
+    }
     if (state.drag) {
       const svgPt = screenToSVG(e.clientX, e.clientY);
-      const el = getElement(state.drag.id);
-      if (el) {
-        const nx = Math.round((state.drag.origX + (svgPt.x - state.drag.startX)) / 10) * 10;
-        const ny = Math.round((state.drag.origY + (svgPt.y - state.drag.startY)) / 10) * 10;
-        if (nx !== el.x || ny !== el.y) { el.x = nx; el.y = ny; render(); }
-      }
+      const dx = svgPt.x - state.drag.startX, dy = svgPt.y - state.drag.startY;
+      const moved = [];
+      state.drag.items.forEach(it => {
+        const el = getElement(it.id);
+        if (!el) return;
+        const nx = Math.round((it.origX + dx) / 10) * 10;
+        const ny = Math.round((it.origY + dy) / 10) * 10;
+        if (nx !== el.x || ny !== el.y) { el.x = nx; el.y = ny; moved.push(el); }
+      });
+      if (moved.length) { state.drag.moved = true; renderMoved(moved); }
     }
   }
 
@@ -341,8 +405,14 @@
       if (pointers.size < 2) state.pinch = null;
       return;
     }
-    // a plain click doesn't change the snapshot, so it doesn't add an undo step
-    if (state.drag) { state.drag = null; saveState(); }
+    if (state.drag) {
+      const d = state.drag;
+      state.drag = null;
+      // a click on one element of a group, with no drag, means "just this one"
+      if (!d.moved && d.clickOnly !== null) selectElement(d.clickOnly);
+      else saveState();  // a plain click leaves the snapshot alone, so no undo step
+    }
+    if (state.marquee) finishMarquee();
     state.pan = null;
     svg.classList.remove('panning');
   }
@@ -490,6 +560,12 @@
         if (key === 'y' || e.shiftKey) redo(); else undo();
         return;
       }
+      if (mod && !e.altKey && !typing && (key === 'a' || key === 'd')) {
+        e.preventDefault();
+        if (key === 'a') setSelection(state.elements.map(el => el.id));
+        else duplicateSelected();
+        return;
+      }
       if (key === 'Escape') {
         closeMenus();
         if (!typing) { deselectAll(); setTool('select'); }
@@ -504,7 +580,7 @@
       const tools = { v: 'select', c: 'connect', e: 'entity', w: 'weak-entity', r: 'relationship', i: 'identifying-rel' };
       const nudge = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
       if (key === 'Delete' || key === 'Backspace') {
-        if (state.selectedId !== null || state.selectedConnId !== null) { e.preventDefault(); deleteSelected(); }
+        if (state.selectedIds.length || state.selectedConnId !== null) { e.preventDefault(); deleteSelected(); }
       } else if (tools[key]) {
         setTool(tools[key]);
       } else if (key === ' ') {
@@ -515,21 +591,24 @@
         zoomAt(1.25);
       } else if (key === ']' || key === '[') {
         cycleSelection(key === ']' ? 1 : -1);
-      } else if (nudge[key] && state.selectedId !== null) {
+      } else if (nudge[key] && state.selectedIds.length) {
         e.preventDefault();
-        const el = getElement(state.selectedId);
         const step = e.shiftKey ? 50 : 10;
-        el.x += nudge[key][0] * step;
-        el.y += nudge[key][1] * step;
+        state.selectedIds.forEach(id => {
+          const el = getElement(id);
+          el.x += nudge[key][0] * step;
+          el.y += nudge[key][1] * step;
+        });
         render();
-        saveState('nudge-' + el.id);
+        saveState('nudge-' + state.selectedIds.join(','));
       }
     });
   }
 
   function cycleSelection(dir) {
     if (!state.elements.length) return;
-    const i = state.elements.findIndex(e => e.id === state.selectedId);
+    const cur = state.selectedIds.length ? state.selectedIds[state.selectedIds.length - 1] : null;
+    const i = state.elements.findIndex(e => e.id === cur);
     const next = state.elements[(i + dir + state.elements.length) % state.elements.length];
     selectElement(next.id);
     setStatus(next.name + ' selected');
@@ -556,10 +635,11 @@
   }
 
   function deleteSelected() {
-    if (state.selectedId !== null) {
-      state.connections = state.connections.filter(c => c.fromId !== state.selectedId && c.toId !== state.selectedId);
-      state.elements = state.elements.filter(e => e.id !== state.selectedId);
-      state.selectedId = null;
+    if (state.selectedIds.length) {
+      const gone = new Set(state.selectedIds);
+      state.connections = state.connections.filter(c => !gone.has(c.fromId) && !gone.has(c.toId));
+      state.elements = state.elements.filter(e => !gone.has(e.id));
+      state.selectedId = null; state.selectedIds = [];
     } else if (state.selectedConnId !== null) {
       state.connections = state.connections.filter(c => c.id !== state.selectedConnId);
       state.selectedConnId = null;
@@ -569,29 +649,103 @@
     showDefaultProps(); render(); saveState();
   }
 
-  function selectElement(id) {
-    state.selectedId = id; state.selectedConnId = null;
+  // selectedIds is every selected element; selectedId is the single one whose
+  // properties are showing, or null when several are selected at once.
+  function setSelection(ids) {
+    state.selectedIds = ids.filter(id => getElement(id));
+    state.selectedId = state.selectedIds.length === 1 ? state.selectedIds[0] : null;
+    state.selectedConnId = null;
     render();
-    const el = getElement(id);
-    if (el) showElementProps(el);
+    if (state.selectedId !== null) showElementProps(getElement(state.selectedId));
+    else if (state.selectedIds.length) showMultiProps();
+    else showDefaultProps();
+  }
+
+  function selectElement(id) { setSelection([id]); }
+
+  function isSelected(id) { return state.selectedIds.includes(id); }
+
+  function toggleSelected(id) {
+    const ids = state.selectedIds.filter(i => i !== id);
+    if (ids.length === state.selectedIds.length) ids.push(id);
+    setSelection(ids);
   }
 
   function selectConnection(id) {
-    state.selectedConnId = id; state.selectedId = null;
+    state.selectedConnId = id; state.selectedId = null; state.selectedIds = [];
     render();
     const conn = getConnection(id);
     if (conn) showConnectionProps(conn);
   }
 
+  function clearSelection() {
+    state.selectedId = null; state.selectedIds = []; state.selectedConnId = null; state.connectFromId = null;
+  }
+
   function deselectAll() {
-    const had = state.selectedId !== null || state.selectedConnId !== null || state.connectFromId !== null;
-    state.selectedId = null; state.selectedConnId = null; state.connectFromId = null;
+    const had = state.selectedIds.length || state.selectedConnId !== null || state.connectFromId !== null;
+    clearSelection();
     if (had) { showDefaultProps(); render(); }
   }
 
   function focusNameField() {
     const inp = document.getElementById('prop-name');
     if (inp) { inp.focus(); inp.select(); }
+  }
+
+  function duplicateSelected() {
+    if (!state.selectedIds.length) return;
+    const newId = {};
+    const copies = state.selectedIds.map(id => {
+      const copy = JSON.parse(JSON.stringify(getElement(id)));
+      copy.id = state.nextId++;
+      copy.x += 40; copy.y += 40;
+      newId[id] = copy.id;
+      return copy;
+    });
+    state.elements.push(...copies);
+    // a line between two copied elements comes along too
+    state.connections.filter(c => newId[c.fromId] && newId[c.toId]).forEach(c => {
+      state.connections.push({ ...c, id: state.nextId++, fromId: newId[c.fromId], toId: newId[c.toId] });
+    });
+    setSelection(copies.map(c => c.id));
+    saveState();
+    setStatus(copies.length === 1 ? 'Duplicated ' + copies[0].name : 'Duplicated ' + copies.length + ' elements');
+  }
+
+  // Align and distribute use the painted boxes, so a weak entity's outer border counts.
+  function alignSelected(how) {
+    const els = state.selectedIds.map(id => getElement(id));
+    const b = boundsOf(els);
+    els.forEach(el => {
+      const box = elemBox(el);
+      if (how === 'left') el.x += b.minX - box.x;
+      if (how === 'right') el.x += b.maxX - (box.x + box.w);
+      if (how === 'center') el.x += (b.minX + b.maxX) / 2 - (box.x + box.w / 2);
+      if (how === 'top') el.y += b.minY - box.y;
+      if (how === 'bottom') el.y += b.maxY - (box.y + box.h);
+      if (how === 'middle') el.y += (b.minY + b.maxY) / 2 - (box.y + box.h / 2);
+      el.x = Math.round(el.x); el.y = Math.round(el.y);
+    });
+    render(); saveState();
+  }
+
+  // Even gaps between neighbours along one axis; the two on the outside stay put.
+  function distributeSelected(axis) {
+    const els = state.selectedIds.map(id => getElement(id));
+    if (els.length < 3) return;
+    const pos = axis === 'x' ? 'x' : 'y', size = axis === 'x' ? 'w' : 'h';
+    const items = els.map(el => ({ el, box: elemBox(el) })).sort((a, b) => a.box[pos] - b.box[pos]);
+    const first = items[0].box, last = items[items.length - 1].box;
+    const span = last[pos] + last[size] - first[pos];
+    const used = items.reduce((sum, it) => sum + it.box[size], 0);
+    const gap = (span - used) / (items.length - 1);
+    let cursor = first[pos];
+    items.forEach(it => {
+      it.el[pos] += Math.round(cursor - it.box[pos]);
+      cursor += it.box[size] + gap;
+    });
+    render(); saveState();
   }
 
   function handleConnectClick(id) {
@@ -610,14 +764,18 @@
   // ==================== RENDERING ====================
   function render() {
     while (elemLayer.firstChild) elemLayer.removeChild(elemLayer.firstChild);
+    renderConnections();
+    state.elements.forEach(el => elemLayer.appendChild(renderElement(el)));
+  }
+
+  function renderConnections() {
     while (connLayer.firstChild) connLayer.removeChild(connLayer.firstChild);
     state.connections.forEach(c => { const g = renderConnection(c); if (g) connLayer.appendChild(g); });
-    state.elements.forEach(el => elemLayer.appendChild(renderElement(el)));
   }
 
   function renderElement(el) {
     const g = createSVG('g', {
-      class: 'er-element' + (el.id === state.selectedId ? ' selected' : '') +
+      class: 'er-element' + (isSelected(el.id) ? ' selected' : '') +
         (el.id === state.connectFromId ? ' connect-highlight' : ''),
       'data-id': el.id, transform: `translate(${el.x}, ${el.y})`
     });
@@ -741,7 +899,7 @@
     state.elements = result.elements;
     state.connections = result.connections;
     state.nextId = result.nextId;
-    state.selectedId = null; state.selectedConnId = null; state.connectFromId = null;
+    clearSelection();
     render();
     showDefaultProps();
     centerView();
@@ -908,7 +1066,7 @@
     propsContent.innerHTML = `
       <p class="hint">Click an element to edit it. Double-click to rename.</p>
       <p class="hint hint-head"><b>Tips:</b></p>
-      <p class="hint"><kbd>V</kbd> <b>Select</b> &ndash; click to select, drag to move, drag empty space to pan</p>
+      <p class="hint"><kbd>V</kbd> <b>Select</b> &ndash; click to select, drag to move, drag empty space to pan. <kbd>Shift</kbd>+click or <kbd>Shift</kbd>+drag picks several</p>
       <p class="hint"><kbd>C</kbd> <b>Connect</b> &ndash; click first element, then second to draw line</p>
       <p class="hint"><kbd>E</kbd> <kbd>W</kbd> <kbd>R</kbd> <kbd>I</kbd> <b>Entity / Weak / Rel / Ident</b> &ndash; click canvas to place</p>
       <p class="hint"><kbd>Space</kbd> fit view &nbsp; <kbd>+</kbd><kbd>&minus;</kbd> or scroll / pinch to zoom</p>
@@ -947,7 +1105,7 @@
       html += `</div><button class="attr-remove" data-idx="${i}" aria-label="Remove attribute ${i + 1}" title="Remove">&times;</button></li>`;
     });
     html += `</ul><button class="prop-btn" id="add-attr-btn">+ Add</button></div>`;
-    html += `<div class="prop-group"><button class="prop-btn danger" id="prop-delete-btn">Delete</button></div>`;
+    html += `<div class="prop-group"><button class="prop-btn" id="prop-dup-btn" title="Duplicate (Ctrl/Cmd+D)">Duplicate</button> <button class="prop-btn danger" id="prop-delete-btn">Delete</button></div>`;
     propsContent.innerHTML = html;
 
     document.getElementById('prop-type').onchange = e => { el.type = e.target.value; render(); showElementProps(el); saveState(); };
@@ -982,7 +1140,35 @@
       const inputs = document.querySelectorAll('.attr-name-input');
       if (inputs.length) { inputs[inputs.length - 1].focus(); inputs[inputs.length - 1].select(); }
     };
+    document.getElementById('prop-dup-btn').onclick = duplicateSelected;
     document.getElementById('prop-delete-btn').onclick = deleteSelected;
+  }
+
+  function showMultiProps() {
+    const n = state.selectedIds.length;
+    const few = n < 3 ? 'disabled' : '';
+    propsContent.innerHTML = `
+      <p class="prop-pair"><b>${n} elements selected</b></p>
+      <div class="prop-group"><label>Align</label>
+        <div class="btn-row">
+          <button class="prop-btn" data-align="left">Left</button><button class="prop-btn" data-align="center">Center</button><button class="prop-btn" data-align="right">Right</button>
+        </div>
+        <div class="btn-row">
+          <button class="prop-btn" data-align="top">Top</button><button class="prop-btn" data-align="middle">Middle</button><button class="prop-btn" data-align="bottom">Bottom</button>
+        </div>
+      </div>
+      <div class="prop-group"><label>Distribute</label>
+        <div class="btn-row">
+          <button class="prop-btn" data-dist="x" ${few}>Horizontally</button><button class="prop-btn" data-dist="y" ${few}>Vertically</button>
+        </div>
+        ${few ? '<p class="hint">Select three or more to distribute.</p>' : ''}
+      </div>
+      <div class="prop-group"><button class="prop-btn" id="multi-dup" title="Duplicate (Ctrl/Cmd+D)">Duplicate</button> <button class="prop-btn danger" id="multi-del">Delete all</button></div>
+      <p class="hint"><kbd>Shift</kbd>+click adds or removes one. Drag, or use the arrow keys, to move them together.</p>`;
+    propsContent.querySelectorAll('[data-align]').forEach(b => { b.onclick = () => alignSelected(b.dataset.align); });
+    propsContent.querySelectorAll('[data-dist]').forEach(b => { b.onclick = () => distributeSelected(b.dataset.dist); });
+    document.getElementById('multi-dup').onclick = duplicateSelected;
+    document.getElementById('multi-del').onclick = deleteSelected;
   }
 
   function showConnectionProps(conn) {
@@ -1306,10 +1492,11 @@
     applyDoc(JSON.parse(snap));
     state.connectFromId = null;
     state.drag = null;
-    // keep the selection if the thing still exists, re-pointing the props panel at the new copy
-    if (state.selectedId !== null && getElement(state.selectedId)) selectElement(state.selectedId);
+    // keep the selection if the things still exist, re-pointing the props panel at the new copies
+    const kept = state.selectedIds.filter(id => getElement(id));
+    if (kept.length) setSelection(kept);
     else if (state.selectedConnId !== null && getConnection(state.selectedConnId)) selectConnection(state.selectedConnId);
-    else { state.selectedId = null; state.selectedConnId = null; showDefaultProps(); render(); }
+    else { clearSelection(); showDefaultProps(); render(); }
     try { localStorage.setItem('erDiagram', snap); } catch (e) {}
     syncOutputs();
     updateUndoButtons();
@@ -1383,7 +1570,7 @@
       try { d = cleanDoc(JSON.parse(reader.result)); } catch (err) {}
       if (!d || !d.elements.length) { setStatus(file.name + " isn't a diagram saved from this app.", true); return; }
       applyDoc(d);
-      state.selectedId = null; state.selectedConnId = null; state.connectFromId = null;
+      clearSelection();
       render(); showDefaultProps(); centerView(); saveState();
       setStatus('Opened ' + file.name);
     };
@@ -1449,6 +1636,7 @@
     setStatus('Exported schema.sql');
   }
 
-  window.ERApp = { state, render, saveState, setTool, deselectAll, showDefaultProps, updateViewBox, getElementCenter, undo, redo, parseERText, cleanDoc };
+  window.ERApp = { state, render, saveState, setTool, deselectAll, setSelection, showDefaultProps, updateViewBox, getElementCenter,
+    elemBox, undo, redo, parseERText, cleanDoc, duplicateSelected, alignSelected, distributeSelected };
   document.addEventListener('DOMContentLoaded', init);
 })();
