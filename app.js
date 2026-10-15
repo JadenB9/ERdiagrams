@@ -135,6 +135,11 @@
     document.getElementById('export-png-btn').addEventListener('click', exportPNG);
     document.getElementById('export-svg-btn').addEventListener('click', exportSVG);
     document.getElementById('export-sql-btn').addEventListener('click', exportSQL);
+    const darkBox = document.getElementById('export-dark');
+    try { darkBox.checked = localStorage.getItem('erExportDark') === '1'; } catch (e) {}
+    darkBox.addEventListener('change', () => {
+      try { localStorage.setItem('erExportDark', darkBox.checked ? '1' : '0'); } catch (e) {}
+    });
     document.getElementById('save-btn').addEventListener('click', saveFile);
     document.getElementById('open-btn').addEventListener('click', () => document.getElementById('open-input').click());
     document.getElementById('open-input').addEventListener('change', openFile);
@@ -1624,25 +1629,49 @@
   }
 
   // ==================== EXPORT ====================
-  // A trimmed copy of the canvas: no grid, no selection, fitted to the diagram,
-  // light colours whatever theme is on screen.
+  // Dark palette for exports that should match the screen. Mirrors the
+  // :root:not([data-theme="light"]) #canvas rules in style.css.
+  const DARK_INK = {
+    shape: { fill: '#202327', stroke: '#b9c0c8' },
+    hdr: { fill: '#2a4a66' },
+    rel: { fill: '#2c4a35', stroke: '#b9c0c8' },
+    ink: { stroke: '#b9c0c8' },
+    'ink-fill': { fill: '#b9c0c8' },
+    lbl: { fill: '#e4e6e9' },
+    soft: { fill: '#9aa1a9' },
+    'attr-box': { fill: '#202327', stroke: '#7d848c' }
+  };
+  const DARK_CANVAS = '#16181b';
+
+  // Images come out light unless the Export menu box is ticked and dark is showing.
+  function exportInDark() {
+    return document.getElementById('export-dark').checked && !isLightTheme();
+  }
+
+  // A trimmed copy of the canvas: no grid, no selection, fitted to the diagram.
   function buildExportSVG(scale) {
     let b = { minX: 0, minY: 0, maxX: 800, maxY: 600 };
     if (state.elements.length) b = diagramBounds();
     const pad = 40, ew = b.maxX - b.minX + pad * 2, eh = b.maxY - b.minY + pad * 2;
     const c = svg.cloneNode(true);
     c.removeAttribute('class'); c.removeAttribute('tabindex'); c.removeAttribute('role'); c.removeAttribute('aria-label');
-    const grid = c.querySelector('#grid-bg');
-    if (grid) grid.remove();
-    const defs = c.querySelector('defs');
-    if (defs) defs.remove();
+    ['#grid-bg', 'defs', '#overlay-layer'].forEach(sel => { const n = c.querySelector(sel); if (n) n.remove(); });
     c.querySelectorAll('.selected,.connect-highlight').forEach(e => { e.classList.remove('selected'); e.classList.remove('connect-highlight'); });
+    const dark = exportInDark();
+    if (dark) {
+      Object.keys(DARK_INK).forEach(cls => {
+        c.querySelectorAll('.' + cls).forEach(node => {
+          Object.entries(DARK_INK[cls]).forEach(([k, v]) => node.setAttribute(k, v));
+        });
+      });
+    }
     c.setAttribute('viewBox', `${b.minX - pad} ${b.minY - pad} ${ew} ${eh}`);
     c.setAttribute('width', ew * scale); c.setAttribute('height', eh * scale);
     c.setAttribute('font-family', measureFont || 'sans-serif');
-    const bg = createSVG('rect', { x: b.minX - pad, y: b.minY - pad, width: ew, height: eh, fill: 'white' });
+    const bgColor = dark ? DARK_CANVAS : 'white';
+    const bg = createSVG('rect', { x: b.minX - pad, y: b.minY - pad, width: ew, height: eh, fill: bgColor });
     c.insertBefore(bg, c.firstChild);
-    return { node: c, w: ew * scale, h: eh * scale };
+    return { node: c, w: ew * scale, h: eh * scale, bg: bgColor };
   }
 
   function exportSVG() {
@@ -1661,7 +1690,7 @@
     const img = new Image();
     img.onload = () => {
       const cvs = document.createElement('canvas'); cvs.width = out.w; cvs.height = out.h;
-      const ctx = cvs.getContext('2d'); ctx.fillStyle = 'white'; ctx.fillRect(0, 0, cvs.width, cvs.height);
+      const ctx = cvs.getContext('2d'); ctx.fillStyle = out.bg; ctx.fillRect(0, 0, cvs.width, cvs.height);
       ctx.drawImage(img, 0, 0);
       URL.revokeObjectURL(url);
       cvs.toBlob(png => {
