@@ -130,6 +130,7 @@
     document.getElementById('undo-btn').addEventListener('click', undo);
     document.getElementById('redo-btn').addEventListener('click', redo);
     document.getElementById('delete-btn').addEventListener('click', deleteSelected);
+    document.getElementById('layout-btn').addEventListener('click', autoLayout);
     document.getElementById('render-btn').addEventListener('click', parseAndRender);
     document.getElementById('export-png-btn').addEventListener('click', exportPNG);
     document.getElementById('export-svg-btn').addEventListener('click', exportSVG);
@@ -591,6 +592,8 @@
         zoomAt(1.25);
       } else if (key === ']' || key === '[') {
         cycleSelection(key === ']' ? 1 : -1);
+      } else if (key === 'l') {
+        autoLayout();
       } else if (nudge[key] && state.selectedIds.length) {
         e.preventDefault();
         const step = e.shiftKey ? 50 : 10;
@@ -1044,6 +1047,48 @@
       entities[n].y = rowBottom + 200;
       x += GAP_X;
     });
+  }
+
+  // ==================== AUTO-LAYOUT ====================
+  // Entities a relationship is wired to, one entry per connection, so a
+  // recursive relationship lists its entity twice.
+  function connectedEntities(rel) {
+    const out = [];
+    state.connections.forEach(c => {
+      if (c.fromId !== rel.id && c.toId !== rel.id) return;
+      const other = getElement(c.fromId === rel.id ? c.toId : c.fromId);
+      if (other && isEntity(other)) out.push(other);
+    });
+    return out;
+  }
+
+  // Re-runs the parser's layout on whatever is on the canvas. Ids and
+  // everything else stay put, only positions change, so one undo reverts it.
+  function autoLayout() {
+    if (!state.elements.length) { setStatus('Nothing to arrange yet.', true); return; }
+    const entities = {};
+    state.elements.filter(isEntity).forEach(el => { entities[el.id] = el; });
+    const rels = [], loose = [];
+    state.elements.filter(el => !isEntity(el)).forEach(rel => {
+      const ends = connectedEntities(rel);
+      if (ends.length >= 2) {
+        rels.push({ relType: rel.type === 'identifying-rel' ? 'IDENT' : 'REL', e1: String(ends[0].id), e2: String(ends[1].id), el: rel });
+      } else {
+        loose.push(rel);
+      }
+    });
+    layoutEntities(entities, rels);
+    const placed = [];
+    rels.forEach(r => placeRelationship(r.el, entities[r.e1], entities[r.e2], placed));
+    // relationships not wired to two entities line up under everything else
+    if (loose.length) {
+      const b = boundsOf(state.elements.filter(el => !loose.includes(el)));
+      let x = isFinite(b.minX) ? b.minX : 0;
+      const y = isFinite(b.maxY) ? Math.round((b.maxY + 100) / 10) * 10 : 0;
+      loose.forEach(rel => { rel.x = x; rel.y = y; x += diamondWidth(rel) + 60; });
+    }
+    render(); centerView(); saveState();
+    setStatus('Arranged ' + state.elements.length + ' elements. Undo puts them back.');
   }
 
   function parseAttrs(str) {
@@ -1637,6 +1682,6 @@
   }
 
   window.ERApp = { state, render, saveState, setTool, deselectAll, setSelection, showDefaultProps, updateViewBox, getElementCenter,
-    elemBox, undo, redo, parseERText, cleanDoc, duplicateSelected, alignSelected, distributeSelected };
+    elemBox, undo, redo, parseERText, cleanDoc, duplicateSelected, alignSelected, distributeSelected, autoLayout };
   document.addEventListener('DOMContentLoaded', init);
 })();
