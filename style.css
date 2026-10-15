@@ -1,26 +1,29 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+/* Dark is the default, like the rest of j4den.com; data-theme="light" overrides. */
 :root {
-  --bar: #1e1e1e; --bar-btn: #2a2a2a; --bar-btn-hover: #3a3a3a; --bar-line: #444; --bar-text: #ccc;
-  --accent: #0066cc;
-  --canvas: #fff; --grid: #e0e0e0;
-  --panel: #fafafa; --panel-head: #f0f0f0; --line: #ddd; --line-soft: #eee;
-  --text: #333; --muted: #666; --hint: #888;
-  --input: #fff; --input-line: #ccc; --danger: #c33;
-  --code-bg: #1e1e1e; --code-text: #d4d4d4;
-  --status-bg: rgba(30, 30, 30, .88); --status-text: #fff;
-  color-scheme: light;
-}
-[data-theme="dark"] {
   --bar: #141414; --bar-btn: #232323; --bar-btn-hover: #303030; --bar-line: #3a3a3a; --bar-text: #ccc;
-  --accent: #3b8eea;
+  --accent: #3b8eea; --accent-line: #5aa2f2;
   --canvas: #16181b; --grid: #262a2f;
   --panel: #1c1e21; --panel-head: #232529; --line: #34373c; --line-soft: #2a2d31;
   --text: #dcdcdc; --muted: #a0a4aa; --hint: #8a8f96;
   --input: #26292d; --input-line: #3d4147; --danger: #f07070;
   --code-bg: #121314; --code-text: #d4d4d4;
   --status-bg: rgba(240, 240, 240, .92); --status-text: #111;
+  --select: #4ea1ff; --connect: #ff9a3c;
   color-scheme: dark;
+}
+[data-theme="light"] {
+  --bar: #1e1e1e; --bar-btn: #2a2a2a; --bar-btn-hover: #3a3a3a; --bar-line: #444; --bar-text: #ccc;
+  --accent: #0066cc; --accent-line: #0088ff;
+  --canvas: #fff; --grid: #e0e0e0;
+  --panel: #fafafa; --panel-head: #f0f0f0; --line: #ddd; --line-soft: #eee;
+  --text: #333; --muted: #666; --hint: #888;
+  --input: #fff; --input-line: #ccc; --danger: #c33;
+  --code-bg: #1e1e1e; --code-text: #d4d4d4;
+  --status-bg: rgba(30, 30, 30, .88); --status-text: #fff;
+  --select: #0066cc; --connect: #cc6600;
+  color-scheme: light;
 }
 
 body {
@@ -44,10 +47,15 @@ button { font-family: inherit; }
 }
 .tbtn::-webkit-details-marker { display: none; }
 .tbtn:hover { background: var(--bar-btn-hover); color: #fff; border-color: #666; }
-.tbtn.active { background: var(--accent); border-color: #0088ff; color: #fff; }
+.tbtn.active { background: var(--accent); border-color: var(--accent-line); color: #fff; }
 .tbtn:disabled { opacity: .4; cursor: default; }
 .tbtn:disabled:hover { background: var(--bar-btn); color: var(--bar-text); border-color: var(--bar-line); }
 .ticon { font-size: 13px; }
+svg.ticon { width: 14px; height: 14px; flex-shrink: 0; }
+/* the theme button shows the mode you'd switch to */
+.theme-sun { display: none; }
+:root:not([data-theme="light"]) .theme-sun { display: block; }
+:root:not([data-theme="light"]) .theme-moon { display: none; }
 .tsep { width: 1px; height: 24px; background: var(--bar-line); margin: 0 4px; flex-shrink: 0; }
 
 /* TOOLBAR DROPDOWNS */
@@ -116,6 +124,7 @@ button { font-family: inherit; }
 }
 #props-content { padding: 10px 12px; }
 .hint { color: var(--hint); font-size: 12px; line-height: 1.5; margin-bottom: 4px; }
+.hint-head { margin-top: 8px; }
 .hint kbd {
   font-family: 'SF Mono','Menlo',monospace; font-size: 10px; padding: 0 4px;
   border: 1px solid var(--line); border-radius: 3px; background: var(--input); color: var(--text);
@@ -186,33 +195,30 @@ button { font-family: inherit; }
 /* SVG */
 .er-element { cursor: move; }
 .er-element:hover rect, .er-element:hover polygon { filter: brightness(0.95); }
-.er-element.selected > rect:first-of-type, .er-element.selected > polygon:first-of-type { stroke: #0066cc; stroke-width: 2.5; }
-.er-element.connect-highlight > rect:first-of-type, .er-element.connect-highlight > polygon:first-of-type { stroke: #cc6600; stroke-width: 2.5; }
+.er-element.selected > rect:first-of-type, .er-element.selected > polygon:first-of-type { stroke: var(--select); stroke-width: 2.5; }
+.er-element.connect-highlight > rect:first-of-type, .er-element.connect-highlight > polygon:first-of-type { stroke: var(--connect); stroke-width: 2.5; }
 .er-connection { cursor: pointer; }
 /* .hit is the wide transparent line that makes connections easy to click;
    painting it too turned the hover into a 12px blue band */
-.er-connection:hover line:not(.hit), .er-connection.selected line:not(.hit) { stroke: #0066cc; }
-.er-connection:hover polygon, .er-connection.selected polygon { fill: #0066cc; }
+.er-connection:hover line:not(.hit), .er-connection.selected line:not(.hit) { stroke: var(--select); }
+.er-connection:hover polygon, .er-connection.selected polygon { fill: var(--select); }
 
 /* Dark canvas. Shapes keep light-theme presentation attributes so an exported
-   SVG/PNG always comes out print-friendly; these rules only repaint the screen. */
-[data-theme="dark"] #canvas .shape { fill: #202327; stroke: #b9c0c8; }
-[data-theme="dark"] #canvas .hdr { fill: #2a4a66; }
-[data-theme="dark"] #canvas .rel { fill: #2c4a35; stroke: #b9c0c8; }
-[data-theme="dark"] #canvas .ink { stroke: #b9c0c8; }
-[data-theme="dark"] #canvas .ink-fill { fill: #b9c0c8; }
-[data-theme="dark"] #canvas .lbl { fill: #e4e6e9; }
-[data-theme="dark"] #canvas .soft { fill: #9aa1a9; }
-[data-theme="dark"] #canvas .attr-box { fill: #202327; stroke: #7d848c; }
-[data-theme="dark"] .er-element:hover rect, [data-theme="dark"] .er-element:hover polygon { filter: brightness(1.15); }
-[data-theme="dark"] #canvas .er-element.selected > .shape:first-of-type,
-[data-theme="dark"] #canvas .er-element.selected > .rel:first-of-type,
-[data-theme="dark"] #canvas .er-connection:hover line:not(.hit),
-[data-theme="dark"] #canvas .er-connection.selected line:not(.hit) { stroke: #4ea1ff; }
-[data-theme="dark"] #canvas .er-element.connect-highlight > .shape:first-of-type,
-[data-theme="dark"] #canvas .er-element.connect-highlight > .rel:first-of-type { stroke: #ff9a3c; }
-[data-theme="dark"] #canvas .er-connection:hover polygon,
-[data-theme="dark"] #canvas .er-connection.selected polygon { fill: #4ea1ff; }
+   SVG/PNG comes out print-friendly unless asked otherwise; these rules only
+   repaint the screen. The same palette lives in DARK_INK in app.js for export. */
+:root:not([data-theme="light"]) #canvas .shape { fill: #202327; stroke: #b9c0c8; }
+:root:not([data-theme="light"]) #canvas .hdr { fill: #2a4a66; }
+:root:not([data-theme="light"]) #canvas .rel { fill: #2c4a35; stroke: #b9c0c8; }
+:root:not([data-theme="light"]) #canvas .ink { stroke: #b9c0c8; }
+:root:not([data-theme="light"]) #canvas .ink-fill { fill: #b9c0c8; }
+:root:not([data-theme="light"]) #canvas .lbl { fill: #e4e6e9; }
+:root:not([data-theme="light"]) #canvas .soft { fill: #9aa1a9; }
+:root:not([data-theme="light"]) #canvas .attr-box { fill: #202327; stroke: #7d848c; }
+:root:not([data-theme="light"]) .er-element:hover rect, :root:not([data-theme="light"]) .er-element:hover polygon { filter: brightness(1.15); }
+:root:not([data-theme="light"]) #canvas .er-element.selected > .shape:first-of-type,
+:root:not([data-theme="light"]) #canvas .er-element.selected > .rel:first-of-type { stroke: var(--select); }
+:root:not([data-theme="light"]) #canvas .er-element.connect-highlight > .shape:first-of-type,
+:root:not([data-theme="light"]) #canvas .er-element.connect-highlight > .rel:first-of-type { stroke: var(--connect); }
 
 /* PROP CONTROLS */
 .prop-group { margin-bottom: 10px; }

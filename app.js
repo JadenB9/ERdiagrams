@@ -57,6 +57,7 @@
     loadState();
     history.last = docSnapshot();
     updateUndoButtons();
+    updateThemeButton();
     showDefaultProps();
     if (state.elements.length) centerView();
   }
@@ -187,10 +188,25 @@
     render();
   }
 
+  function isLightTheme() {
+    return document.documentElement.getAttribute('data-theme') === 'light';
+  }
+
+  // Light is data-theme="light" on <html>, dark is no attribute, saved under the
+  // same 'theme' key the rest of j4den.com reads.
   function toggleTheme() {
-    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', next);
+    const next = isLightTheme() ? 'dark' : 'light';
+    if (next === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    else document.documentElement.removeAttribute('data-theme');
     try { localStorage.setItem('theme', next); } catch (e) {}
+    updateThemeButton();
+  }
+
+  function updateThemeButton() {
+    const btn = document.getElementById('theme-btn');
+    const light = isLightTheme();
+    btn.setAttribute('aria-label', light ? 'Switch to dark theme' : 'Switch to light theme');
+    btn.title = light ? 'Switch to dark theme' : 'Switch to light theme';
   }
 
   function setStatus(msg, isError) {
@@ -865,7 +881,7 @@
   function showDefaultProps() {
     propsContent.innerHTML = `
       <p class="hint">Click an element to edit it. Double-click to rename.</p>
-      <p class="hint" style="margin-top:8px"><b>Tips:</b></p>
+      <p class="hint hint-head"><b>Tips:</b></p>
       <p class="hint"><kbd>V</kbd> <b>Select</b> &ndash; click to select, drag to move, drag empty space to pan</p>
       <p class="hint"><kbd>C</kbd> <b>Connect</b> &ndash; click first element, then second to draw line</p>
       <p class="hint"><kbd>E</kbd> <kbd>W</kbd> <kbd>R</kbd> <kbd>I</kbd> <b>Entity / Weak / Rel / Ident</b> &ndash; click canvas to place</p>
