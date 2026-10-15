@@ -403,28 +403,42 @@
   }
 
   function diagramBounds() {
+    return boundsOf(state.elements);
+  }
+
+  function boundsOf(elements) {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    state.elements.forEach(el => {
-      const sz = elemSize(el);
-      const left = el.x - (isEntity(el) ? 3 : sz.extraW / 2 + IDENT_PAD);
-      minX = Math.min(minX, left);
-      minY = Math.min(minY, el.y - IDENT_PAD);
-      maxX = Math.max(maxX, left + sz.w);
-      maxY = Math.max(maxY, el.y + sz.h);
+    elements.forEach(el => {
+      const b = elemBox(el);
+      minX = Math.min(minX, b.x);
+      minY = Math.min(minY, b.y);
+      maxX = Math.max(maxX, b.x + b.w);
+      maxY = Math.max(maxY, b.y + b.h);
     });
     return { minX, minY, maxX, maxY };
   }
 
   function isEntity(el) { return el.type === 'entity' || el.type === 'weak-entity'; }
 
-  function elemSize(el) {
+  function entityHeight(el) {
+    return HEADER_HEIGHT + Math.max((el.attributes || []).length * ATTR_HEIGHT, ATTR_HEIGHT);
+  }
+
+  // The rectangle an element actually paints, outer border included, so
+  // fitting, exporting, box-selecting and aligning all agree on its edges.
+  function elemBox(el) {
+    const attrs = el.attributes || [];
     if (isEntity(el)) {
-      const h = HEADER_HEIGHT + Math.max((el.attributes || []).length * ATTR_HEIGHT, ATTR_HEIGHT);
-      return { w: entityWidth(el) + 6, h: h + 6, extraW: 0 };
+      const pad = el.type === 'weak-entity' ? 3 : 0;
+      return { x: el.x - pad, y: el.y - pad, w: entityWidth(el) + pad * 2, h: entityHeight(el) + pad * 2 };
     }
-    let widest = DIAMOND_W;
-    (el.attributes || []).forEach(a => { widest = Math.max(widest, relAttrWidth(a)); });
-    return { w: widest + IDENT_PAD * 2, h: DIAMOND_H + IDENT_PAD * 2 + (el.attributes || []).length * 20 + 20, extraW: widest - DIAMOND_W };
+    const dw = diamondWidth(el);
+    const pad = el.type === 'identifying-rel' ? IDENT_PAD : 0;
+    let widest = dw + pad * 2;
+    attrs.forEach(a => { widest = Math.max(widest, relAttrWidth(a)); });
+    // attribute boxes hang under the diamond, 20px each, starting 3px below it
+    const bottom = attrs.length ? DIAMOND_H + 3 + attrs.length * 20 : DIAMOND_H + pad;
+    return { x: el.x + dw / 2 - widest / 2, y: el.y - pad, w: widest, h: bottom + pad };
   }
 
   // ==================== TEXT MEASURING ====================
@@ -454,6 +468,12 @@
 
   function relAttrWidth(attr) {
     return Math.max(textWidth(attr.name, 10) + 16, 70);
+  }
+
+  // A diamond narrows above and below its centre line, so a long name needs
+  // more than its own width of room.
+  function diamondWidth(el) {
+    return Math.max(DIAMOND_W, Math.ceil((textWidth(el.name, 11) * 1.2 + 30) / 10) * 10);
   }
 
   // ==================== KEYBOARD ====================
@@ -632,10 +652,11 @@
   }
 
   function renderRelShape(g, el) {
-    const hw = DIAMOND_W / 2, hh = DIAMOND_H / 2;
-    const pts = `${hw},0 ${DIAMOND_W},${hh} ${hw},${DIAMOND_H} 0,${hh}`;
+    const dw = diamondWidth(el);
+    const hw = dw / 2, hh = DIAMOND_H / 2;
+    const pts = `${hw},0 ${dw},${hh} ${hw},${DIAMOND_H} 0,${hh}`;
     if (el.type === 'identifying-rel') {
-      const op = `${hw},${-IDENT_PAD} ${DIAMOND_W + IDENT_PAD},${hh} ${hw},${DIAMOND_H + IDENT_PAD} ${-IDENT_PAD},${hh}`;
+      const op = `${hw},${-IDENT_PAD} ${dw + IDENT_PAD},${hh} ${hw},${DIAMOND_H + IDENT_PAD} ${-IDENT_PAD},${hh}`;
       createSVG('polygon', { class: 'rel', points: op, fill: '#D4E8D4', stroke: '#333', 'stroke-width': 1.5 }, g);
     }
     createSVG('polygon', { class: 'rel', points: pts, fill: '#D4E8D4', stroke: '#333', 'stroke-width': 1.5 }, g);
@@ -653,11 +674,8 @@
   }
 
   function getElementCenter(el) {
-    if (isEntity(el)) {
-      const h = HEADER_HEIGHT + Math.max((el.attributes || []).length * ATTR_HEIGHT, ATTR_HEIGHT);
-      return { x: el.x + entityWidth(el) / 2, y: el.y + h / 2 };
-    }
-    return { x: el.x + DIAMOND_W / 2, y: el.y + DIAMOND_H / 2 };
+    if (isEntity(el)) return { x: el.x + entityWidth(el) / 2, y: el.y + entityHeight(el) / 2 };
+    return { x: el.x + diamondWidth(el) / 2, y: el.y + DIAMOND_H / 2 };
   }
 
   function getEdgePt(el, tx, ty) {
@@ -665,13 +683,12 @@
     const dx = tx - c.x, dy = ty - c.y;
     if (dx === 0 && dy === 0) return c;
     if (isEntity(el)) {
-      const h = HEADER_HEIGHT + Math.max((el.attributes || []).length * ATTR_HEIGHT, ATTR_HEIGHT);
       const hw = entityWidth(el) / 2 + (el.type === 'weak-entity' ? 3 : 0);
-      const hh = h / 2 + (el.type === 'weak-entity' ? 3 : 0);
+      const hh = entityHeight(el) / 2 + (el.type === 'weak-entity' ? 3 : 0);
       const t = Math.abs(dx) * hh > Math.abs(dy) * hw ? hw / Math.abs(dx) : hh / Math.abs(dy);
       return { x: c.x + dx * t, y: c.y + dy * t };
     }
-    const hw = DIAMOND_W / 2 + (el.type === 'identifying-rel' ? IDENT_PAD : 0);
+    const hw = diamondWidth(el) / 2 + (el.type === 'identifying-rel' ? IDENT_PAD : 0);
     const hh = DIAMOND_H / 2 + (el.type === 'identifying-rel' ? IDENT_PAD : 0);
     const t = 1.0 / (Math.abs(dx) / hw + Math.abs(dy) / hh);
     return { x: c.x + dx * t, y: c.y + dy * t };
@@ -782,18 +799,12 @@
 
     rels.forEach(r => {
       const e1 = entities[r.e1], e2 = entities[r.e2];
-      const c1 = getElementCenter(e1), c2 = getElementCenter(e2);
-      let rx = Math.round(((c1.x + c2.x) / 2 - DIAMOND_W / 2) / 10) * 10;
-      let ry = Math.round(((c1.y + c2.y) / 2 - DIAMOND_H / 2) / 10) * 10;
-      // two relationships between the same pair would sit exactly on top of each other
-      while (placed.some(p => Math.abs(p.x - rx) < DIAMOND_W && Math.abs(p.y - ry) < DIAMOND_H)) ry += DIAMOND_H + 20;
-      placed.push({ x: rx, y: ry });
-
       const relEl = {
         id: nextId++,
         type: r.relType === 'IDENT' ? 'identifying-rel' : 'relationship',
-        x: rx, y: ry, name: r.name, attributes: r.attrs
+        x: 0, y: 0, name: r.name, attributes: r.attrs
       };
+      placeRelationship(relEl, e1, e2, placed);
       elements.push(relEl);
 
       // Cardinality (1:N, M:N, N:1, 1:1): an arrow points at each "one" side
@@ -815,9 +826,24 @@
       entityCount: Object.keys(entities).length, relCount: rels.length };
   }
 
+  // A relationship sits halfway between its two entities. `placed` remembers
+  // where earlier ones went, so two between the same pair don't stack.
+  function placeRelationship(relEl, e1, e2, placed) {
+    const c1 = getElementCenter(e1), c2 = getElementCenter(e2);
+    const dw = diamondWidth(relEl);
+    let rx = Math.round(((c1.x + c2.x) / 2 - dw / 2) / 10) * 10;
+    let ry = Math.round(((c1.y + c2.y) / 2 - DIAMOND_H / 2) / 10) * 10;
+    // a recursive relationship (both ends on one entity) goes just under it
+    if (e1 === e2) ry = Math.round((elemBox(e1).y + elemBox(e1).h + 60) / 10) * 10;
+    while (placed.some(p => Math.abs(p.x - rx) < DIAMOND_W && Math.abs(p.y - ry) < DIAMOND_H)) ry += DIAMOND_H + 20;
+    placed.push({ x: rx, y: ry });
+    relEl.x = rx; relEl.y = ry;
+  }
+
   // Strong entities go in a row, each with its weak entities fanned out above
   // and below. Each slot is as wide as its fan, so neighbouring groups don't
-  // land on top of each other.
+  // land on top of each other. `entities` is keyed however the caller likes
+  // (names from the parser, ids from auto-layout); rels refer to those keys.
   function layoutEntities(entities, rels) {
     const GAP_X = 380;
     const weakGroups = {};
@@ -831,7 +857,7 @@
     });
 
     const names = Object.keys(entities);
-    const height = n => elemSize(entities[n]).h;
+    const height = n => elemBox(entities[n]).h;
     let cursor = 0, rowBottom = 0;
     names.filter(n => entities[n].type === 'entity').forEach(n => {
       const group = weakGroups[n] || [];
