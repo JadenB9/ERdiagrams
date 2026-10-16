@@ -55,6 +55,7 @@
     setupTextToggle();
     setupTabs();
     setupTextResize();
+    setupHelp();
     window.addEventListener('resize', updateViewBox);
     updateViewBox();
     loadState();
@@ -99,6 +100,14 @@
     }, (start, d) => {
       section.style.height = Math.max(80, Math.min(500, start - d)) + 'px';
     }, 'y');
+  }
+
+  function setupHelp() {
+    const dlg = document.getElementById('help');
+    document.getElementById('help-btn').addEventListener('click', () => dlg.showModal());
+    document.getElementById('help-close').addEventListener('click', () => dlg.close());
+    // a click on the backdrop lands on the dialog element itself
+    dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
   }
 
   // Shared pointer logic for the two panel splitters (mouse, pen or touch).
@@ -563,6 +572,8 @@
       const typing = t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.isContentEditable;
       const mod = e.ctrlKey || e.metaKey;
       const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      const help = document.getElementById('help');
+      if (help.open) return;  // the sheet closes itself on Escape; nothing else should fire
 
       if (mod && !e.altKey && (key === 'z' || key === 'y')) {
         if (typing) return;  // leave text fields their own undo
@@ -603,6 +614,8 @@
         cycleSelection(key === ']' ? 1 : -1);
       } else if (key === 'l') {
         autoLayout();
+      } else if (key === '?') {
+        help.showModal();
       } else if (nudge[key] && state.selectedIds.length) {
         e.preventDefault();
         const step = e.shiftKey ? 50 : 10;
@@ -1116,9 +1129,52 @@
   }
 
   // ==================== PROPERTIES ====================
+  // Things a grader would circle: missing keys, weak entities with no owner,
+  // relationships that don't join two entities, duplicate table names.
+  function diagramProblems() {
+    const out = [];
+    const touches = el => state.connections.some(c => c.fromId === el.id || c.toId === el.id);
+    state.elements.forEach(el => {
+      const attrs = el.attributes || [];
+      if (el.type === 'entity' && !attrs.some(a => a.pk)) out.push(el.name + ' has no primary key');
+      if (el.type === 'weak-entity') {
+        if (!attrs.some(a => a.discriminator)) out.push(el.name + ' has no discriminator');
+        const owned = state.connections.some(c => {
+          if (c.fromId !== el.id && c.toId !== el.id) return false;
+          const other = getElement(c.fromId === el.id ? c.toId : c.fromId);
+          return other && other.type === 'identifying-rel';
+        });
+        if (!owned) out.push(el.name + ' has no identifying relationship');
+      }
+      if (isEntity(el)) {
+        if (state.elements.length > 1 && !touches(el)) out.push(el.name + " isn't connected to anything");
+      } else {
+        const ends = connectedEntities(el);
+        if (ends.length < 2) out.push(el.name + (ends.length ? ' joins only one entity' : ' joins nothing'));
+        else if (el.type === 'identifying-rel' && !ends.some(e => e.type === 'weak-entity')) out.push(el.name + ' is identifying but has no weak entity');
+      }
+    });
+    const seen = {};
+    state.elements.filter(isEntity).forEach(el => {
+      const key = toSnakeCase(el.name);
+      if (seen[key]) out.push(seen[key] + ' and ' + el.name + ' would be the same table');
+      else seen[key] = el.name;
+    });
+    return out;
+  }
+
   function showDefaultProps() {
+    let checks = '';
+    if (state.elements.length) {
+      const problems = diagramProblems();
+      checks = '<p class="hint hint-head"><b>Checks:</b></p>';
+      if (!problems.length) checks += '<p class="hint">Nothing to flag.</p>';
+      else checks += `<ul class="check-list">${problems.slice(0, 8).map(p => `<li>${esc(p)}</li>`).join('')}</ul>` +
+        (problems.length > 8 ? `<p class="hint">and ${problems.length - 8} more</p>` : '');
+    }
     propsContent.innerHTML = `
       <p class="hint">Click an element to edit it. Double-click to rename.</p>
+      ${checks}
       <p class="hint hint-head"><b>Tips:</b></p>
       <p class="hint"><kbd>V</kbd> <b>Select</b> &ndash; click to select, drag to move, drag empty space to pan. <kbd>Shift</kbd>+click or <kbd>Shift</kbd>+drag picks several</p>
       <p class="hint"><kbd>C</kbd> <b>Connect</b> &ndash; click first element, then second to draw line</p>
@@ -1126,7 +1182,7 @@
       <p class="hint"><kbd>Space</kbd> fit view &nbsp; <kbd>+</kbd><kbd>&minus;</kbd> or scroll / pinch to zoom</p>
       <p class="hint"><kbd>[</kbd><kbd>]</kbd> step through elements &nbsp; arrows move, <kbd>Shift</kbd> for bigger steps</p>
       <p class="hint"><kbd>Ctrl/Cmd+Z</kbd> undo &nbsp; <kbd>Ctrl/Cmd+Shift+Z</kbd> redo</p>
-      <p class="hint">File &rsaquo; <b>Examples</b> loads a sample diagram and shows the text format in action.</p>`;
+      <p class="hint">File &rsaquo; <b>Examples</b> loads a sample diagram and shows the text format in action. <kbd>?</kbd> lists every shortcut.</p>`;
   }
 
   function showElementProps(el) {
@@ -1480,8 +1536,11 @@
     return 'VARCHAR(255)';
   }
 
+  // Table and column names: snake_case with nothing SQL would choke on.
   function toSnakeCase(str) {
-    return str.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase().replace(/\s+/g, '_');
+    const name = str.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase()
+      .replace(/[^a-z0-9_]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+    return name || 'unnamed';
   }
 
   // ==================== HELPERS ====================
@@ -1715,6 +1774,6 @@
   }
 
   window.ERApp = { state, render, saveState, setTool, deselectAll, setSelection, showDefaultProps, updateViewBox, getElementCenter,
-    elemBox, undo, redo, parseERText, cleanDoc, duplicateSelected, alignSelected, distributeSelected, autoLayout };
+    elemBox, undo, redo, parseERText, cleanDoc, duplicateSelected, alignSelected, distributeSelected, autoLayout, diagramProblems };
   document.addEventListener('DOMContentLoaded', init);
 })();

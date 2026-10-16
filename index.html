@@ -75,6 +75,9 @@
         <svg class="ticon theme-moon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 10.2A6 6 0 0 1 5.8 2.5a6 6 0 1 0 7.7 7.7z"/></svg>
         Theme
       </button>
+      <button class="tbtn" id="help-btn" title="Keyboard shortcuts (?)">
+        <svg class="ticon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.3"/><path d="M6.1 6.4a1.9 1.9 0 1 1 2.8 1.7c-.6.3-.9.7-.9 1.3M8 11.6v.1"/></svg> Keys
+      </button>
       <input type="file" id="open-input" accept=".json,application/json" hidden>
     </div>
 
@@ -127,6 +130,43 @@
       </div>
     </div>
   </div>
+
+  <dialog id="help" aria-labelledby="help-title">
+    <div class="help-head">
+      <h2 id="help-title">Keyboard shortcuts</h2>
+      <button class="help-close" id="help-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="help-cols">
+      <table class="help-table">
+        <tr><th colspan="2">Tools</th></tr>
+        <tr><td><kbd>V</kbd></td><td>Select</td></tr>
+        <tr><td><kbd>C</kbd></td><td>Connect: click two elements</td></tr>
+        <tr><td><kbd>E</kbd> <kbd>W</kbd></td><td>Entity, weak entity</td></tr>
+        <tr><td><kbd>R</kbd> <kbd>I</kbd></td><td>Relationship, identifying relationship</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>Deselect and go back to Select</td></tr>
+        <tr><th colspan="2">Selecting</th></tr>
+        <tr><td><kbd>Shift</kbd>+click</td><td>Add to or remove from the selection</td></tr>
+        <tr><td><kbd>Shift</kbd>+drag</td><td>Box-select on empty canvas</td></tr>
+        <tr><td><kbd>Ctrl/Cmd</kbd>+<kbd>A</kbd></td><td>Select everything</td></tr>
+        <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>Step through elements</td></tr>
+        <tr><td>Double-click</td><td>Rename</td></tr>
+      </table>
+      <table class="help-table">
+        <tr><th colspan="2">Editing</th></tr>
+        <tr><td>Arrows</td><td>Move the selection 10px, <kbd>Shift</kbd> for 50px</td></tr>
+        <tr><td><kbd>Delete</kbd></td><td>Delete the selection</td></tr>
+        <tr><td><kbd>Ctrl/Cmd</kbd>+<kbd>D</kbd></td><td>Duplicate</td></tr>
+        <tr><td><kbd>Ctrl/Cmd</kbd>+<kbd>Z</kbd></td><td>Undo</td></tr>
+        <tr><td><kbd>Ctrl/Cmd</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd></td><td>Redo</td></tr>
+        <tr><td><kbd>L</kbd></td><td>Auto-layout the whole diagram</td></tr>
+        <tr><th colspan="2">View</th></tr>
+        <tr><td><kbd>Space</kbd></td><td>Fit the diagram to the window</td></tr>
+        <tr><td><kbd>+</kbd> <kbd>&minus;</kbd></td><td>Zoom, or scroll / pinch</td></tr>
+        <tr><td>Drag empty canvas</td><td>Pan (right or middle button works anywhere)</td></tr>
+        <tr><td><kbd>?</kbd></td><td>This sheet</td></tr>
+      </table>
+    </div>
+  </dialog>
   <script src="mlb.js"></script>
   <script src="samples.js"></script>
   <script src="app.js"></script>
